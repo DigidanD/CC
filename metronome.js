@@ -132,13 +132,13 @@
     src.buffer = noiseBuffer;
     const hpf = ctx.createBiquadFilter();
     hpf.type = 'highpass';
-    hpf.frequency.value = 7000;
-    hpf.Q.value = 0.8;
-    const g = makeGain(ctx, volume * 1.5, time, 0.04);
+    hpf.frequency.value = 5000;
+    hpf.Q.value = 1.2;
+    const g = makeGain(ctx, volume * 4, time, 0.06);
     src.connect(hpf);
     hpf.connect(g);
     src.start(time);
-    src.stop(time + 0.06);
+    src.stop(time + 0.09);
   }
 
   /* ─────────────────────────────────────────────
