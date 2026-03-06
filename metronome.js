@@ -36,6 +36,8 @@
     rampCurrentMeasure:  0,
     rampActive:          false,
 
+    countInRemaining:    0,
+
     pendingFlashes:      [],
     rafRunning:          false,
   };
@@ -147,9 +149,26 @@
   function scheduler() {
     const ctx = getAudioCtx();
     while (state.nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD_TIME) {
-      scheduleNote(state.currentBeat, state.nextNoteTime);
-      advanceBeat();
+      if (state.countInRemaining > 0) {
+        scheduleCountInNote(state.nextNoteTime);
+        advanceCountIn();
+      } else {
+        scheduleNote(state.currentBeat, state.nextNoteTime);
+        advanceBeat();
+      }
     }
+  }
+
+  function scheduleCountInNote(time) {
+    const beatNum = state.timeSigUpper - state.countInRemaining + 1;
+    playSound(state.soundType, time, beatNum === 1);
+    state.pendingFlashes.push({ time, isCountIn: true, countNum: beatNum });
+  }
+
+  function advanceCountIn() {
+    const beatDuration = (60.0 / state.bpm) * (4 / state.timeSigLower);
+    state.nextNoteTime += beatDuration;
+    state.countInRemaining--;
   }
 
   function scheduleNote(beatIndex, time) {
@@ -184,10 +203,11 @@
   function startPlayback() {
     const ctx = getAudioCtx();
     ctx.resume();
-    state.isPlaying       = true;
-    state.currentBeat     = 0;
-    state.nextNoteTime    = ctx.currentTime + 0.05;
-    state.pendingFlashes  = [];
+    state.isPlaying          = true;
+    state.currentBeat        = 0;
+    state.nextNoteTime       = ctx.currentTime + 0.05;
+    state.pendingFlashes     = [];
+    state.countInRemaining   = state.timeSigUpper;
 
     if (state.rampEnabled) initRamp();
 
@@ -200,14 +220,16 @@
   }
 
   function stopPlayback() {
-    state.isPlaying  = false;
-    state.rampActive = false;
+    state.isPlaying        = false;
+    state.rampActive       = false;
+    state.countInRemaining = 0;
     clearInterval(state.timerID);
-    state.timerID       = null;
-    state.pendingFlashes = [];
+    state.timerID        = null;
+    state.pendingFlashes  = [];
     beatDots.forEach(d => d.classList.remove('active', 'accent'));
     updatePlayButton(false);
     updateRampProgress(0);
+    hideCountIn();
   }
 
   /* ─────────────────────────────────────────────
@@ -219,8 +241,12 @@
 
     state.pendingFlashes = state.pendingFlashes.filter(flash => {
       if (flash.time <= now) {
-        const dotIndex = Math.floor(flash.beatIndex / state.subdivision);
-        triggerDotFlash(dotIndex, flash.isAccent);
+        if (flash.isCountIn) {
+          showCountInNumber(flash.countNum);
+        } else {
+          const dotIndex = Math.floor(flash.beatIndex / state.subdivision);
+          triggerDotFlash(dotIndex, flash.isAccent);
+        }
         return false;
       }
       return true;
@@ -230,7 +256,30 @@
       requestAnimationFrame(rafLoop);
     } else {
       state.rafRunning = false;
+      hideCountIn();
     }
+  }
+
+  /* ─────────────────────────────────────────────
+     Count-In Visual
+  ───────────────────────────────────────────── */
+  const countInDisplay = document.getElementById('count-in-display');
+  const countInNumEl   = document.getElementById('count-in-num');
+
+  function showCountInNumber(num) {
+    const beatMs = 60000 / state.bpm;
+    document.documentElement.style.setProperty('--count-beat-dur', Math.min(beatMs * 0.88, 700) + 'ms');
+    beatVisualizer.classList.add('dimmed');
+    countInDisplay.classList.add('active');
+    countInNumEl.textContent = num;
+    countInNumEl.classList.remove('popping');
+    void countInNumEl.offsetWidth;
+    countInNumEl.classList.add('popping');
+  }
+
+  function hideCountIn() {
+    beatVisualizer.classList.remove('dimmed');
+    countInDisplay.classList.remove('active');
   }
 
   /* ─────────────────────────────────────────────
@@ -306,15 +355,16 @@
      setBpm — single source of truth
   ───────────────────────────────────────────── */
   function setBpm(newBpm) {
-    const clamped    = Math.max(40, Math.min(160, Math.round(newBpm)));
+    const clamped    = Math.max(40, Math.min(240, Math.round(newBpm)));
     state.bpm        = clamped;
     updateBpmUI(clamped);
+    document.dispatchEvent(new CustomEvent('bpm-change', { detail: { bpm: clamped } }));
   }
 
   function updateBpmUI(bpm) {
     bpmInput.value = bpm;
     bpmSlider.value = bpm;
-    const pct = ((bpm - 40) / 120 * 100).toFixed(1) + '%';
+    const pct = ((bpm - 40) / 200 * 100).toFixed(1) + '%';
     bpmSlider.style.setProperty('--slider-pct', pct);
 
     const beatMs = 60000 / bpm;
@@ -516,9 +566,24 @@
   }, { once: true });
 
   /* ─────────────────────────────────────────────
+     Tab Switching
+  ───────────────────────────────────────────── */
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
+      if (state.isPlaying) stopPlayback();
+    });
+  });
+
+  /* ─────────────────────────────────────────────
      Init
   ───────────────────────────────────────────── */
   rebuildBeatDots();
   setBpm(state.bpm);
+
+  // Expose shared audio context for rhythm.js
+  window.getSharedAudioCtx = getAudioCtx;
 
 })();
