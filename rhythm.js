@@ -177,6 +177,8 @@
     countInBeat:       4,
     pendingFlashes:    [],
     rafRunning:        false,
+    barCount:          0,
+    currentFill:       null,
   };
 
   /* ─────────────────────────────────────────────
@@ -201,57 +203,147 @@
   }
 
   /* ─────────────────────────────────────────────
+     Humanization helper  (±amt seconds/amplitude)
+  ───────────────────────────────────────────── */
+  function humanize(amt) {
+    return (Math.random() - 0.5) * 2 * amt;
+  }
+
+  /* ─────────────────────────────────────────────
+     Fill Patterns
+     Each fill applies from step `from` to end of bar.
+     Arrays cover the steps from `from` to 15.
+  ───────────────────────────────────────────── */
+  const FILLS = [
+    // Classic snare roll (beats 3–4)
+    { from: 8,
+      kick:  [0,0,0,0, 0,0,0,1],
+      snare: [1,0,1,1, 1,1,1,0],
+      hh:    [0,0,0,0, 0,0,0,0] },
+    // Crash fill – descending snare over two beats
+    { from: 8,
+      kick:  [0,0,1,0, 0,0,0,0],
+      snare: [1,1,0,1, 1,1,1,1],
+      hh:    [0,0,0,0, 0,0,0,0] },
+    // Quick punch – last beat only
+    { from: 12,
+      kick:  [0,0,1,0],
+      snare: [1,1,0,1],
+      hh:    [0,0,0,0] },
+    // Snare flutter with kick accent
+    { from: 8,
+      kick:  [0,0,0,0, 0,0,0,0],
+      snare: [0,1,1,0, 1,1,0,1],
+      hh:    [0,0,0,0, 0,0,0,0] },
+  ];
+
+  /* ─────────────────────────────────────────────
      Drum Sounds
   ───────────────────────────────────────────── */
   function playKick(ctx, time, vol) {
+    // Body: sine sweep for deep thump
     const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.frequency.setValueAtTime(160, time);
-    osc.frequency.exponentialRampToValueAtTime(45, time + 0.18);
-    gain.gain.setValueAtTime(vol, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.32);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(time);
-    osc.stop(time + 0.33);
+    osc.frequency.setValueAtTime(185, time);
+    osc.frequency.exponentialRampToValueAtTime(38, time + 0.15);
+    gain.gain.setValueAtTime(vol * 1.15, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(time); osc.stop(time + 0.36);
+
+    // Click transient: short noise burst for beater attack
+    const click = ctx.createBufferSource();
+    click.buffer = getNoiseBuffer();
+    const bpf = ctx.createBiquadFilter();
+    bpf.type = 'bandpass';
+    bpf.frequency.value = 3500 + Math.random() * 1200;
+    bpf.Q.value = 0.5;
+    const cGain = ctx.createGain();
+    cGain.gain.setValueAtTime(vol * 0.85, time);
+    cGain.gain.exponentialRampToValueAtTime(0.001, time + 0.013);
+    click.connect(bpf); bpf.connect(cGain); cGain.connect(ctx.destination);
+    click.start(time); click.stop(time + 0.016);
   }
 
   function playSnare(ctx, time, vol) {
-    // Noise burst
-    const src    = ctx.createBufferSource();
-    src.buffer   = getNoiseBuffer();
-    const bpf    = ctx.createBiquadFilter();
-    bpf.type     = 'bandpass';
-    bpf.frequency.value = 1800;
-    bpf.Q.value  = 0.8;
-    const nGain  = ctx.createGain();
-    nGain.gain.setValueAtTime(vol * 1.4, time);
-    nGain.gain.exponentialRampToValueAtTime(0.001, time + 0.14);
-    src.connect(bpf); bpf.connect(nGain); nGain.connect(ctx.destination);
-    src.start(time); src.stop(time + 0.15);
+    // Body: low pitched oscillator for snare "crack" body
+    const body = ctx.createOscillator();
+    body.type  = 'triangle';
+    const bodyGain = ctx.createGain();
+    body.frequency.setValueAtTime(200, time);
+    body.frequency.exponentialRampToValueAtTime(130, time + 0.05);
+    bodyGain.gain.setValueAtTime(vol * 0.75, time);
+    bodyGain.gain.exponentialRampToValueAtTime(0.001, time + 0.065);
+    body.connect(bodyGain); bodyGain.connect(ctx.destination);
+    body.start(time); body.stop(time + 0.07);
 
-    // Tone
-    const osc   = ctx.createOscillator();
-    const oGain = ctx.createGain();
-    osc.frequency.value = 210;
-    oGain.gain.setValueAtTime(vol * 0.6, time);
-    oGain.gain.exponentialRampToValueAtTime(0.001, time + 0.07);
-    osc.connect(oGain); oGain.connect(ctx.destination);
-    osc.start(time); osc.stop(time + 0.08);
+    // Snare rattle: bandpass noise (snare wires)
+    const src  = ctx.createBufferSource();
+    src.buffer = getNoiseBuffer();
+    const bpf  = ctx.createBiquadFilter();
+    bpf.type   = 'bandpass';
+    bpf.frequency.value = 2200;
+    bpf.Q.value = 0.65;
+    const nGain = ctx.createGain();
+    nGain.gain.setValueAtTime(vol * 1.55, time);
+    nGain.gain.exponentialRampToValueAtTime(0.001, time + 0.13);
+    src.connect(bpf); bpf.connect(nGain); nGain.connect(ctx.destination);
+    src.start(time); src.stop(time + 0.14);
+
+    // High crack: highpass transient for snap
+    const crack = ctx.createBufferSource();
+    crack.buffer = getNoiseBuffer();
+    const hpf   = ctx.createBiquadFilter();
+    hpf.type    = 'highpass';
+    hpf.frequency.value = 5500 + Math.random() * 1000;
+    const crackGain = ctx.createGain();
+    crackGain.gain.setValueAtTime(vol * 0.55, time);
+    crackGain.gain.exponentialRampToValueAtTime(0.001, time + 0.032);
+    crack.connect(hpf); hpf.connect(crackGain); crackGain.connect(ctx.destination);
+    crack.start(time); crack.stop(time + 0.038);
+  }
+
+  function playGhostSnare(ctx, time, vol) {
+    // Whisper-soft snare hit — adds groove without drawing attention
+    const src  = ctx.createBufferSource();
+    src.buffer = getNoiseBuffer();
+    const bpf  = ctx.createBiquadFilter();
+    bpf.type   = 'bandpass';
+    bpf.frequency.value = 2000;
+    bpf.Q.value = 0.9;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol * 0.13, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.038);
+    src.connect(bpf); bpf.connect(g); g.connect(ctx.destination);
+    src.start(time); src.stop(time + 0.045);
   }
 
   function playHH(ctx, time, vol, open) {
+    // Multi-resonance metallic character (real cymbals have multiple resonant modes)
     const src  = ctx.createBufferSource();
     src.buffer = getNoiseBuffer();
-    const hpf  = ctx.createBiquadFilter();
-    hpf.type   = 'highpass';
-    hpf.frequency.value = open ? 4500 : 9000;
-    const decay = open ? 0.28 : 0.055;
-    const gain  = ctx.createGain();
-    gain.gain.setValueAtTime(vol * 2.5, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
-    src.connect(hpf); hpf.connect(gain); gain.connect(ctx.destination);
-    src.start(time); src.stop(time + decay + 0.01);
+
+    const bands = open
+      ? [[3000, 5], [5500, 8], [8500, 10], [11500, 7]]
+      : [[4200, 7], [6800, 10], [10000, 13], [13500, 8]];
+    const baseDecay = open ? 0.26 : 0.044;
+
+    bands.forEach(([freq, Q], i) => {
+      const bpf = ctx.createBiquadFilter();
+      bpf.type  = 'bandpass';
+      bpf.frequency.value = freq + humanize(freq * 0.015); // slight pitch variation
+      bpf.Q.value = Q;
+      const amp = vol * (0.55 - i * 0.09);
+      if (amp <= 0) return;
+      const decay = Math.max(0.01, baseDecay * (1 - i * 0.06));
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(amp, time);
+      g.gain.exponentialRampToValueAtTime(0.001, time + decay);
+      src.connect(bpf); bpf.connect(g); g.connect(ctx.destination);
+    });
+
+    src.start(time);
+    src.stop(time + (open ? 0.32 : 0.08));
   }
 
   /* ─────────────────────────────────────────────
@@ -286,21 +378,56 @@
     rb.countInRemaining--;
   }
 
-  function scheduleStep(step, time) {
-    const ctx  = getCtx();
-    const pat  = rb.pattern;
-    const vol  = rb.volume;
+  // Timing jitter (±ms) and velocity jitter (± fraction)
+  const TIMING_JITTER = 0.007;
+  const VEL_JITTER    = 0.12;
 
-    if (pat.kick[step])  playKick(ctx, time, vol);
-    if (pat.snare[step]) playSnare(ctx, time, vol * 0.9);
-    if (pat.hh[step])    playHH(ctx, time, vol * 0.65, false);
+  function scheduleStep(step, time) {
+    const ctx = getCtx();
+    const pat = rb.pattern;
+    const vol = rb.volume;
+
+    // Resolve whether this step uses a fill override
+    const fill     = rb.currentFill;
+    const useFill  = fill && step >= fill.from;
+    const fi       = useFill ? step - fill.from : 0;
+    const kickOn   = useFill ? fill.kick[fi]  : pat.kick[step];
+    const snareOn  = useFill ? fill.snare[fi] : pat.snare[step];
+    const hhOn     = useFill ? fill.hh[fi]    : pat.hh[step];
+
+    if (kickOn) {
+      const t = time + humanize(TIMING_JITTER * 0.5);
+      const v = Math.max(0.25, vol * (1 + humanize(VEL_JITTER * 0.5)));
+      playKick(ctx, t, v);
+    }
+
+    if (snareOn) {
+      const t = time + humanize(TIMING_JITTER);
+      const v = Math.max(0.2, vol * 0.9 * (1 + humanize(VEL_JITTER)));
+      playSnare(ctx, t, v);
+    }
+
+    if (hhOn) {
+      // Beat-position accent: on-beat louder, off-beats quieter — like a real drummer
+      const beatPos     = step % 4;
+      const accentFactor = beatPos === 0 ? 1.0 : (beatPos === 2 ? 0.78 : 0.58);
+      const t = time + humanize(TIMING_JITTER * 1.5);
+      const v = Math.max(0.08, vol * 0.65 * accentFactor * (1 + humanize(VEL_JITTER * 1.5)));
+      playHH(ctx, t, v, false);
+    }
+
+    // Ghost snare: ~13% chance on empty 16th positions (not during fills)
+    if (!useFill && !snareOn && !kickOn && Math.random() < 0.13) {
+      const t = time + humanize(TIMING_JITTER * 2);
+      playGhostSnare(ctx, t, vol);
+    }
 
     rb.pendingFlashes.push({
       time,
       step,
-      kick:  !!pat.kick[step],
-      snare: !!pat.snare[step],
-      hh:    !!pat.hh[step],
+      kick:  !!kickOn,
+      snare: !!snareOn,
+      hh:    !!hhOn,
     });
   }
 
@@ -310,6 +437,14 @@
     const ratio   = stepDurationRatio(rb.currentStep, total, rb.feel);
     rb.nextStepTime += ratio * beatDur;
     rb.currentStep   = (rb.currentStep + 1) % total;
+
+    // At bar wrap: count bars and arm fill for every 4th bar
+    if (rb.currentStep === 0) {
+      rb.barCount++;
+      rb.currentFill = (rb.barCount % 4 === 3)
+        ? FILLS[Math.floor(Math.random() * FILLS.length)]
+        : null;
+    }
   }
 
   /* ─────────────────────────────────────────────
@@ -324,6 +459,8 @@
     rb.pendingFlashes   = [];
     rb.countInBeat      = 4;
     rb.countInRemaining = 4;
+    rb.barCount         = 0;
+    rb.currentFill      = null;
 
     rb.timerID = setInterval(scheduler, SCHED_INTVAL);
     if (!rb.rafRunning) { rb.rafRunning = true; requestAnimationFrame(rafLoop); }
@@ -521,8 +658,10 @@
       c.classList.toggle('active', c.querySelector('.pattern-card-name').textContent === pat.name);
     });
     if (rb.isPlaying) {
-      rb.currentStep    = 0;
+      rb.currentStep  = 0;
       rb.pendingFlashes = [];
+      rb.barCount     = 0;
+      rb.currentFill  = null;
     }
   }
 
