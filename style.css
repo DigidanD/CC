@@ -923,11 +923,11 @@ body {
 
 /* ── Accent Hint ── */
 .accent-hint {
-  font-size: 0.76rem;
-  color: var(--text-muted);
+  font-size: 0.82rem;
+  color: var(--text-primary);
   text-align: center;
   letter-spacing: 0.3px;
-  padding: 2px 0;
+  padding: 4px 0 2px;
 }
 
 /* ── Toggles Section ── */
