@@ -842,7 +842,7 @@
 
       card.innerHTML =
         `<div class="pattern-card-name">${pat.name}</div>` +
-        `<div class="pattern-card-bpm">→ ${pat.bpm} BPM · ${pat.feel}</div>`;
+        `<div class="pattern-card-bpm">${pat.bpm} BPM · ${pat.feel}</div>`;
       card.appendChild(preview);
 
       card.addEventListener('click', () => selectPattern(pat));
