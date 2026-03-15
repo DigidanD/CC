@@ -1031,10 +1031,12 @@
   });
 
   // Fills toggle
-  const fillsChk = document.getElementById('fills-enabled');
-  if (fillsChk) {
-    fillsChk.addEventListener('change', () => {
-      rb.fillsEnabled = fillsChk.checked;
+  const fillsPill = document.getElementById('fills-pill');
+  if (fillsPill) {
+    fillsPill.classList.add('active');
+    fillsPill.addEventListener('click', () => {
+      rb.fillsEnabled = !rb.fillsEnabled;
+      fillsPill.classList.toggle('active', rb.fillsEnabled);
       if (!rb.fillsEnabled) rb.currentFill = null;
     });
   }

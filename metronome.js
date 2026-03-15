@@ -700,7 +700,6 @@
   const noteGroup        = document.getElementById('note-group');
   const timeSigGroup     = document.getElementById('timesig-group');
   const soundGroup       = document.getElementById('sound-group');
-  const rampEnabledChk   = document.getElementById('ramp-enabled');
   const rampControls     = document.getElementById('ramp-controls');
   const rampStartInput   = document.getElementById('ramp-start-bpm');
   const rampEndInput     = document.getElementById('ramp-end-bpm');
@@ -745,58 +744,103 @@
     });
   }
 
-  // Count-In toggle
-  const countInChk = document.getElementById('count-in-enabled');
-  if (countInChk) {
-    countInChk.addEventListener('change', () => {
-      state.countInEnabled = countInChk.checked;
+  // ── Compact Dropdown Selectors (Note / Time Sig / Sound) ──────────────
+
+  function closeAllCtrlSels(except) {
+    ['note-sel', 'timesig-sel', 'sound-sel'].forEach(id => {
+      if (id !== except) {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('open');
+      }
     });
   }
 
-  // Note value (subdivision)
+  ['note-sel', 'timesig-sel', 'sound-sel'].forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    sel.querySelector('.ctrl-trigger').addEventListener('click', e => {
+      e.stopPropagation();
+      closeAllCtrlSels(selId);
+      sel.classList.toggle('open');
+    });
+  });
+
+  document.addEventListener('click', () => closeAllCtrlSels(null));
+
+  // Note value
   noteGroup.addEventListener('click', e => {
-    const btn = e.target.closest('.seg-btn');
+    const btn = e.target.closest('.ctrl-opt');
     if (!btn) return;
     state.subdivision = Number(btn.dataset.subdivision);
-    activateSeg(noteGroup, btn);
-    if (state.isPlaying) {
-      state.currentBeat    = 0;
-      state.pendingFlashes = [];
-    }
+    noteGroup.querySelectorAll('.ctrl-opt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const valEl = document.getElementById('note-val');
+    if (valEl) valEl.textContent = btn.textContent.split(' ')[0];
+    document.getElementById('note-sel').classList.remove('open');
+    if (state.isPlaying) { state.currentBeat = 0; state.pendingFlashes = []; }
   });
 
   // Time Signature
   timeSigGroup.addEventListener('click', e => {
-    const btn = e.target.closest('.seg-btn');
+    const btn = e.target.closest('.ctrl-opt');
     if (!btn) return;
     state.timeSigUpper = Number(btn.dataset.upper);
     state.timeSigLower = Number(btn.dataset.lower);
-    activateSeg(timeSigGroup, btn);
+    timeSigGroup.querySelectorAll('.ctrl-opt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const valEl = document.getElementById('timesig-val');
+    if (valEl) valEl.textContent = btn.textContent;
+    document.getElementById('timesig-sel').classList.remove('open');
     state.currentBeat    = 0;
     state.pendingFlashes = [];
     state.accentPattern  = state.accentPattern.slice(0, state.timeSigUpper);
-    while (state.accentPattern.length < state.timeSigUpper) {
-      state.accentPattern.push('normal');
-    }
+    while (state.accentPattern.length < state.timeSigUpper) state.accentPattern.push('normal');
     rebuildBeatDots();
   });
 
   // Sound
   soundGroup.addEventListener('click', e => {
-    const btn = e.target.closest('.seg-btn');
+    const btn = e.target.closest('.ctrl-opt');
     if (!btn) return;
     state.soundType = btn.dataset.sound;
-    activateSeg(soundGroup, btn);
+    soundGroup.querySelectorAll('.ctrl-opt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const valEl = document.getElementById('sound-val');
+    if (valEl) valEl.textContent = btn.textContent;
+    document.getElementById('sound-sel').classList.remove('open');
   });
 
-  // Ramp toggle
-  rampEnabledChk.addEventListener('change', () => {
-    state.rampEnabled = rampEnabledChk.checked;
-    rampControls.classList.toggle('expanded', state.rampEnabled);
-    if (!state.rampEnabled && state.rampActive) {
-      state.rampActive = false;
-    }
-  });
+  // ── Count-In pill ──────────────────────────────────────────────────────
+  const countInPill = document.getElementById('count-in-pill');
+  if (countInPill) {
+    // start active (checked by default)
+    countInPill.classList.add('active');
+    countInPill.addEventListener('click', () => {
+      state.countInEnabled = !state.countInEnabled;
+      countInPill.classList.toggle('active', state.countInEnabled);
+      countInPill.setAttribute('aria-pressed', state.countInEnabled ? 'true' : 'false');
+    });
+  }
+
+  // ── Feature Pills (Ramp / Gap / Bar Break / Timer) ────────────────────
+
+  function toggleFeatPill(pillId, panelId, onActivate, onDeactivate) {
+    const pill  = document.getElementById(pillId);
+    const panel = document.getElementById(panelId);
+    if (!pill || !panel) return;
+    pill.addEventListener('click', () => {
+      const active = pill.classList.toggle('active');
+      panel.classList.toggle('expanded', active);
+      if (active) onActivate(pill, panel);
+      else        onDeactivate(pill, panel);
+    });
+  }
+
+  // Ramp
+  toggleFeatPill('ramp-pill', 'ramp-controls',
+    () => { state.rampEnabled = true; },
+    () => { state.rampEnabled = false; if (state.rampActive) state.rampActive = false; }
+  );
 
   rampStartInput.addEventListener('change', () => {
     state.rampStartBpm = Math.max(40, Math.min(240, Number(rampStartInput.value)));
@@ -814,37 +858,30 @@
   });
 
   // Gap Mode
-  const gapChk = document.getElementById('gap-mode-enabled');
+  toggleFeatPill('gap-pill', 'gap-controls',
+    () => { state.gapMode = true; },
+    () => { state.gapMode = false; }
+  );
   const gapSlider = document.getElementById('gap-density');
-  if (gapChk) {
-    gapChk.addEventListener('change', () => {
-      state.gapMode = gapChk.checked;
-      const ctrl = document.getElementById('gap-controls');
-      if (ctrl) ctrl.classList.toggle('expanded', state.gapMode);
-    });
-  }
   if (gapSlider) {
     gapSlider.addEventListener('input', () => {
       state.gapProbability = Number(gapSlider.value) / 100;
       const label = document.getElementById('gap-density-label');
       if (label) label.textContent = gapSlider.value + '%';
+      gapSlider.style.setProperty('--slider-pct', gapSlider.value * 100 / 75 + '%');
     });
   }
 
   // Bar Break
-  const barBreakChk    = document.getElementById('bar-break-enabled');
+  toggleFeatPill('bar-break-pill', 'bar-break-controls',
+    () => { state.barBreakEnabled = true; },
+    () => {
+      state.barBreakEnabled = false;
+      state.barMuted = false;
+      updateBarBreakVisual();
+    }
+  );
   const barBreakSelect = document.getElementById('bar-break-every');
-  if (barBreakChk) {
-    barBreakChk.addEventListener('change', () => {
-      state.barBreakEnabled = barBreakChk.checked;
-      const ctrl = document.getElementById('bar-break-controls');
-      if (ctrl) ctrl.classList.toggle('expanded', state.barBreakEnabled);
-      if (!state.barBreakEnabled) {
-        state.barMuted = false;
-        updateBarBreakVisual();
-      }
-    });
-  }
   if (barBreakSelect) {
     barBreakSelect.addEventListener('change', () => {
       state.barBreakEvery = Number(barBreakSelect.value);
@@ -852,17 +889,19 @@
   }
 
   // Practice Timer
+  toggleFeatPill('timer-pill', 'timer-controls',
+    () => {
+      const wrap = document.getElementById('header-timer-wrap');
+      if (wrap) wrap.style.display = '';
+    },
+    () => {
+      stopTimer();
+      const wrap = document.getElementById('header-timer-wrap');
+      if (wrap) wrap.style.display = 'none';
+    }
+  );
   const timerStartBtn    = document.getElementById('timer-start-btn');
   const timerDurationSel = document.getElementById('timer-duration');
-  const timerEnabledChk  = document.getElementById('timer-enabled');
-  if (timerEnabledChk) {
-    timerEnabledChk.addEventListener('change', () => {
-      const ctrl = document.getElementById('timer-controls');
-      if (ctrl) ctrl.classList.toggle('expanded', timerEnabledChk.checked);
-      const wrap = document.getElementById('header-timer-wrap');
-      if (wrap) wrap.style.display = timerEnabledChk.checked ? '' : 'none';
-    });
-  }
   if (timerStartBtn) {
     timerStartBtn.addEventListener('click', () => {
       if (timerStartBtn.dataset.running) {

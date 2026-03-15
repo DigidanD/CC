@@ -487,52 +487,243 @@ body {
   margin-top: -6px;
 }
 
-/* ── Primary Controls Block (Volume + Play, high up) ── */
-.primary-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.primary-controls--rb {
-  gap: 8px;
-}
-
-/* Inline volume row: icon + slider + % */
-.vol-inline {
+/* ── Volume Row ── */
+.vol-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 10px 16px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
 
-.vol-inline .control-label {
-  flex-shrink: 0;
+.vol-icon {
   font-size: 1rem;
-  letter-spacing: 0;
-  text-transform: none;
+  flex-shrink: 0;
   color: var(--text-secondary);
 }
 
-.vol-inline .vol-slider {
-  flex: 1;
-}
+.vol-slider { flex: 1; }
 
-.vol-inline .volume-value {
+.volume-value {
   flex-shrink: 0;
   min-width: 36px;
   text-align: right;
   font-size: 0.72rem;
   color: var(--accent);
+  font-weight: 700;
+}
+
+/* ── Pill Toggle Button (Count-in, Fills, etc.) ── */
+.pill-toggle {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: var(--bg-card-raised);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+  min-height: 32px;
+}
+
+.pill-toggle.active,
+.pill-toggle[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* ── Compact Dropdown Selector Bar ── */
+.ctrl-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.ctrl-sel {
+  position: relative;
+}
+
+.ctrl-trigger {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 10px 8px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  min-height: 58px;
+}
+
+.ctrl-trigger:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.ctrl-sel.open .ctrl-trigger {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.ctrl-trigger-val {
+  font-size: 1.2rem;
+  color: var(--accent);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ctrl-trigger-label {
+  font-size: 0.58rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ctrl-trigger-arrow {
+  font-size: 0.5rem;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+}
+
+.ctrl-sel.open .ctrl-trigger-arrow {
+  transform: rotate(180deg);
+}
+
+/* Dropdown panel */
+.ctrl-sel-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--bg-card-raised);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5), 0 0 16px var(--accent-glow);
+  z-index: 200;
+  overflow: hidden;
+  min-width: 130px;
+}
+
+.ctrl-sel.open .ctrl-sel-panel { display: block; }
+
+.ctrl-opt {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.ctrl-opt:last-child { border-bottom: none; }
+
+.ctrl-opt:hover {
+  background: var(--accent-dim);
+  color: var(--text-primary);
+}
+
+.ctrl-opt.active {
+  background: var(--accent);
+  color: #fff;
   font-weight: 600;
 }
 
-/* Compact inline toggle (for Count-In next to volume) */
-.toggle-row--inline {
-  padding: 8px 14px;
+/* ── Feature Section ── */
+.feat-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.feat-pills {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.feat-pill {
+  padding: 12px 10px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.feat-pill:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  background: var(--accent-dim);
+}
+
+.feat-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.feat-pill-badge {
+  font-size: 0.55rem;
+  padding: 1px 5px;
+  background: rgba(255,255,255,0.15);
+  border-radius: var(--radius-pill);
+  letter-spacing: 0.5px;
+}
+
+.feat-pill.active .feat-pill-badge {
+  background: rgba(0,0,0,0.2);
+}
+
+/* Feature collapsible panel */
+.feat-panel {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.3s ease;
+  padding: 0 18px;
+  background: var(--bg-card);
+  border: 1.5px solid transparent;
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.feat-panel.expanded {
+  max-height: 260px;
+  opacity: 1;
+  padding: 16px 18px;
+  border-color: var(--accent);
+  margin-bottom: 8px;
 }
 
 /* ── Empty State ── */
@@ -542,6 +733,43 @@ body {
   color: var(--text-muted);
   font-size: 0.82rem;
   letter-spacing: 0.5px;
+}
+
+/* ── Rhythm Buddy Bottom Row ── */
+.rb-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rb-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ghost-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 120px;
+}
+
+.ghost-inline .control-label {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ghost-inline .vol-slider {
+  flex: 1;
+}
+
+.ghost-inline .slider-value-label {
+  flex-shrink: 0;
+  min-width: 30px;
+  text-align: right;
 }
 
 /* ── Controls Section ── */
