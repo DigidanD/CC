@@ -606,6 +606,14 @@
       '--beat-flash-duration',
       Math.min(beatMs * 0.7, 260) + 'ms'
     );
+
+    // Highlight matching preset button
+    const presetsEl = document.getElementById('bpm-presets');
+    if (presetsEl) {
+      presetsEl.querySelectorAll('.bpm-preset').forEach(btn => {
+        btn.classList.toggle('active', Number(btn.dataset.bpm) === bpm);
+      });
+    }
   }
 
   /* ─────────────────────────────────────────────

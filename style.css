@@ -13,7 +13,7 @@
   --color-success:    #50c878;
   --text-primary:     #f0f0f8;
   --text-secondary:   #8888aa;
-  --text-muted:       #55556a;
+  --text-muted:       #666688;
   --radius-sm:        8px;
   --radius-md:        14px;
   --radius-lg:        20px;
@@ -409,23 +409,30 @@ body {
 }
 
 .bpm-preset {
-  padding: 5px 10px;
+  padding: 5px 12px;
   background: var(--bg-card-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  color: var(--text-muted);
-  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s;
   letter-spacing: 0.5px;
-  min-height: 28px;
+  min-height: 30px;
 }
 
 .bpm-preset:hover {
   background: var(--accent-dim);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.bpm-preset.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .bpm-preset:active { transform: scale(0.94); }
@@ -478,6 +485,63 @@ body {
   font-size: 0.72rem;
   color: var(--text-muted);
   margin-top: -6px;
+}
+
+/* ── Primary Controls Block (Volume + Play, high up) ── */
+.primary-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.primary-controls--rb {
+  gap: 8px;
+}
+
+/* Inline volume row: icon + slider + % */
+.vol-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.vol-inline .control-label {
+  flex-shrink: 0;
+  font-size: 1rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-secondary);
+}
+
+.vol-inline .vol-slider {
+  flex: 1;
+}
+
+.vol-inline .volume-value {
+  flex-shrink: 0;
+  min-width: 36px;
+  text-align: right;
+  font-size: 0.72rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Compact inline toggle (for Count-In next to volume) */
+.toggle-row--inline {
+  padding: 8px 14px;
+}
+
+/* ── Empty State ── */
+.empty-state {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
 }
 
 /* ── Controls Section ── */
@@ -557,11 +621,11 @@ body {
 
 /* ── Accent Hint ── */
 .accent-hint {
-  font-size: 0.7rem;
+  font-size: 0.76rem;
   color: var(--text-muted);
   text-align: center;
   letter-spacing: 0.3px;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 /* ── Toggles Section ── */

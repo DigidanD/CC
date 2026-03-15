@@ -77,6 +77,34 @@
         <div class="bpm-range-labels"><span>40</span><span>240</span></div>
       </section>
 
+      <!-- Primary Controls: Volume + Count-In + Play — always visible, high up -->
+      <section class="primary-controls">
+        <div class="primary-top-row">
+          <div class="vol-inline">
+            <label class="control-label" for="master-volume">&#128266;</label>
+            <input type="range" id="master-volume" class="bpm-slider vol-slider"
+                   min="0" max="100" value="80" aria-label="Master volume"
+                   style="--slider-pct:80%" />
+            <span class="volume-value" id="master-volume-label">80%</span>
+          </div>
+          <label class="toggle-row toggle-row--compact toggle-row--inline">
+            <span class="toggle-label-text">Count-in</span>
+            <span class="toggle-switch">
+              <input type="checkbox" id="count-in-enabled" checked />
+              <span class="toggle-thumb"></span>
+            </span>
+          </label>
+        </div>
+        <div class="action-section">
+          <button class="btn-tap" id="tap-tempo-btn" aria-label="Tap tempo">TAP</button>
+          <button class="btn-play" id="play-pause-btn" aria-label="Start metronome">
+            <span class="play-icon">&#9654;</span>
+            <span class="pause-icon" style="display:none">&#9646;&#9646;</span>
+            <span class="btn-label">START</span>
+          </button>
+        </div>
+      </section>
+
       <!-- Controls -->
       <section class="controls-section">
 
@@ -117,31 +145,8 @@
 
       </section>
 
-      <!-- Toggles Row -->
-      <section class="toggles-section">
-
-        <div class="accent-hint">Click a beat dot to cycle: normal &#8594; accent &#8594; silent</div>
-
-        <label class="toggle-row">
-          <span class="toggle-label-text">Count-In</span>
-          <span class="toggle-switch">
-            <input type="checkbox" id="count-in-enabled" checked />
-            <span class="toggle-thumb"></span>
-          </span>
-        </label>
-
-      </section>
-
-      <!-- Master Volume -->
-      <section class="volume-section">
-        <div class="volume-row">
-          <label class="control-label" for="master-volume">Volume</label>
-          <span class="volume-value" id="master-volume-label">80%</span>
-        </div>
-        <input type="range" id="master-volume" class="bpm-slider"
-               min="0" max="100" value="80" aria-label="Master volume"
-               style="--slider-pct:80%" />
-      </section>
+      <!-- Accent hint -->
+      <div class="accent-hint">Click a beat dot above to cycle: normal &#8594; accent &#8594; silent</div>
 
       <!-- Ramp Section -->
       <section class="ramp-section">
@@ -249,16 +254,6 @@
         </div>
       </section>
 
-      <!-- Action Buttons -->
-      <section class="action-section">
-        <button class="btn-tap" id="tap-tempo-btn" aria-label="Tap tempo">TAP</button>
-        <button class="btn-play" id="play-pause-btn" aria-label="Start metronome">
-          <span class="play-icon">&#9654;</span>
-          <span class="pause-icon" style="display:none">&#9646;&#9646;</span>
-          <span class="btn-label">START</span>
-        </button>
-      </section>
-
     </div><!-- /#tab-metronome -->
 
     <!-- ══════════════════════════════
@@ -277,13 +272,28 @@
         </div>
       </div>
 
+      <!-- Volume + Play — near the top for easy access -->
+      <section class="primary-controls primary-controls--rb">
+        <div class="vol-inline">
+          <label class="control-label" for="rb-volume">&#128266;</label>
+          <input type="range" id="rb-volume" class="bpm-slider vol-slider"
+                 min="0" max="100" value="80" style="--slider-pct:80%" />
+          <span class="volume-value" id="rb-volume-label">80%</span>
+        </div>
+        <div class="action-section">
+          <button class="btn-tap" id="rb-tap-btn" aria-label="Tap tempo">TAP</button>
+          <button class="btn-play" id="rb-play-btn" aria-label="Start rhythm">
+            <span class="play-icon">&#9654;</span>
+            <span class="pause-icon" style="display:none">&#9646;&#9646;</span>
+            <span class="btn-label">START</span>
+          </button>
+        </div>
+      </section>
+
       <!-- Beat Visualizer -->
       <div class="rb-vis-wrapper">
-        <!-- Step position track (dots count set dynamically) -->
         <div class="rb-step-track" id="rb-step-track"></div>
-        <!-- Instrument rows -->
         <div class="rb-instr-rows" id="rb-instr-rows"></div>
-        <!-- Count-in overlay -->
         <div class="count-in-display" id="rb-count-in-display">
           <div class="count-in-num" id="rb-count-in-num"></div>
         </div>
@@ -298,8 +308,11 @@
       <!-- Category Filter (built dynamically) -->
       <div class="cat-filter" id="cat-filter"></div>
 
-      <!-- Pattern Grid -->
+      <!-- Pattern Grid + Empty state -->
       <div class="pattern-grid" id="pattern-grid"></div>
+      <div class="empty-state" id="pattern-empty-state" style="display:none">
+        No patterns found
+      </div>
 
       <!-- Tempo Feel -->
       <div class="control-group">
@@ -313,7 +326,6 @@
 
       <!-- Fills & Ghost Notes Row -->
       <div class="rb-options-row">
-
         <label class="toggle-row toggle-row--compact">
           <span class="toggle-label-text">Auto-Fills</span>
           <span class="toggle-switch">
@@ -321,7 +333,6 @@
             <span class="toggle-thumb"></span>
           </span>
         </label>
-
         <div class="control-group">
           <div class="slider-row">
             <label class="control-label" for="ghost-probability">Ghost Notes</label>
@@ -330,25 +341,7 @@
           <input type="range" id="ghost-probability" class="bpm-slider"
                  min="0" max="50" value="13" style="--slider-pct:26%" />
         </div>
-
       </div>
-
-      <!-- Volume -->
-      <div class="control-group">
-        <label class="control-label">Volume</label>
-        <input type="range" id="rb-volume" class="bpm-slider"
-               min="0" max="100" value="80" style="--slider-pct:80%" />
-      </div>
-
-      <!-- Play Button + Tap -->
-      <section class="action-section">
-        <button class="btn-tap" id="rb-tap-btn" aria-label="Tap tempo">TAP</button>
-        <button class="btn-play" id="rb-play-btn" aria-label="Start rhythm">
-          <span class="play-icon">&#9654;</span>
-          <span class="pause-icon" style="display:none">&#9646;&#9646;</span>
-          <span class="btn-label">START</span>
-        </button>
-      </section>
 
     </div><!-- /#tab-rhythm -->
 

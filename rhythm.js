@@ -817,12 +817,20 @@
      Pattern Grid
   ───────────────────────────────────────────── */
   function buildPatternGrid(cat, searchQuery) {
-    const grid = document.getElementById('pattern-grid');
+    const grid       = document.getElementById('pattern-grid');
+    const emptyState = document.getElementById('pattern-empty-state');
     grid.innerHTML = '';
     let filtered = cat === 'all' ? PATTERNS : PATTERNS.filter(p => p.cat === cat);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(p => p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q));
+    }
+    if (emptyState) {
+      const empty = filtered.length === 0;
+      emptyState.style.display = empty ? 'block' : 'none';
+      emptyState.textContent   = empty
+        ? 'No patterns found' + (searchQuery ? ` for "${searchQuery}"` : '')
+        : '';
     }
     filtered.forEach(pat => {
       const card = document.createElement('div');
@@ -1006,8 +1014,20 @@
     if (!btn) return;
     document.querySelectorAll('#feel-group .seg-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    const oldFeel = rb.feel;
     rb.feel = btn.dataset.feel;
     rb.feelLockedByUser = true;
+    // Resync nextStepTime so already-queued next step lands at the correct
+    // position under the new feel, preventing timing drift mid-bar.
+    if (rb.isPlaying && oldFeel !== rb.feel) {
+      const total   = rb.pattern.steps;
+      const beatDur = 60.0 / rb.bpm;
+      // currentStep was already advanced — prevStep is the one whose gap we correct
+      const prevStep = (rb.currentStep - 1 + total) % total;
+      const oldRatio = stepDurationRatio(prevStep, total, oldFeel);
+      const newRatio = stepDurationRatio(prevStep, total, rb.feel);
+      rb.nextStepTime += (newRatio - oldRatio) * beatDur;
+    }
   });
 
   // Fills toggle
@@ -1035,6 +1055,8 @@
     rb.volume = Number(e.target.value) / 100;
     const pct = e.target.value + '%';
     e.target.style.setProperty('--slider-pct', pct);
+    const lbl = document.getElementById('rb-volume-label');
+    if (lbl) lbl.textContent = e.target.value + '%';
   });
 
   /* ─────────────────────────────────────────────
