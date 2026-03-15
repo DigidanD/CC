@@ -5,10 +5,10 @@
   /* ─────────────────────────────────────────────
      Constants
   ───────────────────────────────────────────── */
-  const SCHEDULE_AHEAD_TIME = 0.1;   // seconds to look ahead
-  const SCHEDULER_INTERVAL  = 25;    // ms between scheduler ticks
-  const TAP_TIMEOUT         = 2000;  // ms: reset taps after silence
-  const TAP_MAX_KEEP        = 8;     // rolling average window
+  const SCHEDULE_AHEAD_TIME = 0.1;
+  const SCHEDULER_INTERVAL  = 25;
+  const TAP_TIMEOUT         = 2000;
+  const TAP_MAX_KEEP        = 8;
 
   /* ─────────────────────────────────────────────
      State
@@ -16,13 +16,18 @@
   const state = {
     isPlaying:           false,
     bpm:                 120,
-    subdivision:         1,      // 1=quarter, 2=eighth, 4=sixteenth
+    subdivision:         1,       // 1=quarter, 2=eighth, 3=triplet-quarter, 4=sixteenth, 6=triplet-eighth
     timeSigUpper:        4,
     timeSigLower:        4,
     soundType:           'click',
-    accentEnabled:       true,
 
-    currentBeat:         0,      // sub-beat index (0-based)
+    // Per-beat accent: 'accent' | 'normal' | 'silent'  (array indexed by beat)
+    accentPattern:       ['accent', 'normal', 'normal', 'normal'],
+
+    masterVolume:        0.8,
+    countInEnabled:      true,
+
+    currentBeat:         0,
     nextNoteTime:        0.0,
     timerID:             null,
 
@@ -36,8 +41,23 @@
     rampCurrentMeasure:  0,
     rampActive:          false,
 
-    countInRemaining:    0,
+    // Gap Mode — randomly silences individual clicks
+    gapMode:             false,
+    gapProbability:      0.25,
 
+    // Bar Break — silences entire bars periodically
+    barBreakEnabled:     false,
+    barBreakEvery:       4,
+    barCount:            0,
+    barMuted:            false,
+
+    // Practice Timer
+    timerEnabled:        false,
+    timerDuration:       10,      // minutes
+    timerRemaining:      0,
+    timerIntervalID:     null,
+
+    countInRemaining:    0,
     pendingFlashes:      [],
     rafRunning:          false,
   };
@@ -45,50 +65,67 @@
   /* ─────────────────────────────────────────────
      Audio Context (lazy)
   ───────────────────────────────────────────── */
-  let audioCtx   = null;
+  let audioCtx    = null;
   let noiseBuffer = null;
+  let masterGain  = null;
 
   function getAudioCtx() {
     if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      noiseBuffer = createNoiseBuffer(audioCtx);
+      try {
+        audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = state.masterVolume;
+        masterGain.connect(audioCtx.destination);
+        noiseBuffer = createNoiseBuffer(audioCtx);
+      } catch (e) {
+        showAudioError();
+      }
     }
     return audioCtx;
   }
 
+  function showAudioError() {
+    const el = document.getElementById('audio-error');
+    if (el) el.style.display = 'block';
+  }
+
   function createNoiseBuffer(ctx) {
-    const len    = Math.ceil(ctx.sampleRate * 0.5);
-    const buf    = ctx.createBuffer(1, len, ctx.sampleRate);
-    const data   = buf.getChannelData(0);
+    const len  = Math.ceil(ctx.sampleRate * 0.5);
+    const buf  = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
     for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
     return buf;
+  }
+
+  function getDest() {
+    return masterGain || (audioCtx && audioCtx.destination);
   }
 
   /* ─────────────────────────────────────────────
      Sound Synthesis
   ───────────────────────────────────────────── */
-  function playSound(type, time, isAccent) {
-    const ctx    = getAudioCtx();
-    const volume = isAccent ? 1.0 : 0.55;
-
-    switch (type) {
-      case 'click': playClick(ctx, time, volume, isAccent); break;
-      case 'wood':  playWood(ctx, time, volume, isAccent);  break;
-      case 'beep':  playBeep(ctx, time, volume, isAccent);  break;
-      case 'hihat': playHihat(ctx, time, volume);           break;
-    }
-  }
-
   function makeGain(ctx, volume, time, decay) {
     const g = ctx.createGain();
     g.gain.setValueAtTime(volume, time);
     g.gain.exponentialRampToValueAtTime(0.0001, time + decay);
-    g.connect(ctx.destination);
+    g.connect(getDest());
     return g;
   }
 
+  function playSound(type, time, isAccent) {
+    const ctx    = getAudioCtx();
+    const volume = isAccent ? 1.0 : 0.55;
+    switch (type) {
+      case 'click':   playClick(ctx, time, volume, isAccent);   break;
+      case 'wood':    playWood(ctx, time, volume, isAccent);    break;
+      case 'beep':    playBeep(ctx, time, volume, isAccent);    break;
+      case 'hihat':   playHihat(ctx, time, volume);             break;
+      case 'rim':     playRim(ctx, time, volume, isAccent);     break;
+      case 'cowbell': playCowbell(ctx, time, volume, isAccent); break;
+    }
+  }
+
   function playClick(ctx, time, volume, isAccent) {
-    // Short noise burst through bandpass — classic click
     const src = ctx.createBufferSource();
     src.buffer = noiseBuffer;
     const bpf = ctx.createBiquadFilter();
@@ -96,37 +133,31 @@
     bpf.frequency.value = isAccent ? 1800 : 1200;
     bpf.Q.value = 1.5;
     const g = makeGain(ctx, volume * 3, time, isAccent ? 0.03 : 0.02);
-    src.connect(bpf);
-    bpf.connect(g);
-    src.start(time);
-    src.stop(time + 0.05);
+    src.connect(bpf); bpf.connect(g);
+    src.start(time); src.stop(time + 0.05);
   }
 
   function playWood(ctx, time, volume, isAccent) {
-    // Two triangle oscillators, slightly detuned
-    const freqA = isAccent ? 900  : 700;
-    const freqB = isAccent ? 750  : 580;
+    const freqA = isAccent ? 900 : 700;
+    const freqB = isAccent ? 750 : 580;
     const decay = isAccent ? 0.07 : 0.05;
-
     [freqA, freqB].forEach(freq => {
       const osc = ctx.createOscillator();
       osc.type = 'triangle';
       osc.frequency.value = freq;
       const g = makeGain(ctx, volume, time, decay);
       osc.connect(g);
-      osc.start(time);
-      osc.stop(time + decay + 0.01);
+      osc.start(time); osc.stop(time + decay + 0.01);
     });
   }
 
   function playBeep(ctx, time, volume, isAccent) {
-    const osc  = ctx.createOscillator();
-    osc.type   = 'sine';
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
     osc.frequency.value = isAccent ? 1000 : 800;
-    const g    = makeGain(ctx, volume, time, isAccent ? 0.09 : 0.06);
+    const g = makeGain(ctx, volume, time, isAccent ? 0.09 : 0.06);
     osc.connect(g);
-    osc.start(time);
-    osc.stop(time + 0.12);
+    osc.start(time); osc.stop(time + 0.12);
   }
 
   function playHihat(ctx, time, volume) {
@@ -137,10 +168,47 @@
     hpf.frequency.value = 5000;
     hpf.Q.value = 1.2;
     const g = makeGain(ctx, volume * 4, time, 0.06);
-    src.connect(hpf);
-    hpf.connect(g);
-    src.start(time);
-    src.stop(time + 0.09);
+    src.connect(hpf); hpf.connect(g);
+    src.start(time); src.stop(time + 0.09);
+  }
+
+  function playRim(ctx, time, volume, isAccent) {
+    // Rim click — tight bandpass noise, pitched like a rimshot
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer;
+    const bpf = ctx.createBiquadFilter();
+    bpf.type = 'bandpass';
+    bpf.frequency.value = isAccent ? 1600 : 1100;
+    bpf.Q.value = 3.5;
+    const g = makeGain(ctx, volume * 2.8, time, isAccent ? 0.025 : 0.018);
+    src.connect(bpf); bpf.connect(g);
+    src.start(time); src.stop(time + 0.04);
+    // Low "thwack" component
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = isAccent ? 320 : 240;
+    const g2 = makeGain(ctx, volume * 0.5, time, 0.02);
+    osc.connect(g2);
+    osc.start(time); osc.stop(time + 0.025);
+  }
+
+  function playCowbell(ctx, time, volume, isAccent) {
+    // Cowbell — two square oscillators at classic frequencies, bandpass filtered
+    const freq1 = isAccent ? 555 : 500;
+    const freq2 = isAccent ? 845 : 800;
+    const decay = isAccent ? 0.32 : 0.22;
+    [freq1, freq2].forEach(freq => {
+      const osc = ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      const bpf = ctx.createBiquadFilter();
+      bpf.type = 'bandpass';
+      bpf.frequency.value = freq;
+      bpf.Q.value = 2;
+      const g = makeGain(ctx, volume * 0.28, time, decay);
+      osc.connect(bpf); bpf.connect(g);
+      osc.start(time); osc.stop(time + decay + 0.01);
+    });
   }
 
   /* ─────────────────────────────────────────────
@@ -148,6 +216,7 @@
   ───────────────────────────────────────────── */
   function scheduler() {
     const ctx = getAudioCtx();
+    if (!ctx) return;
     while (state.nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD_TIME) {
       if (state.countInRemaining > 0) {
         scheduleCountInNote(state.nextNoteTime);
@@ -172,18 +241,18 @@
   }
 
   function scheduleNote(beatIndex, time) {
-    const totalSubs  = state.timeSigUpper * state.subdivision;
-    const isFirstSub = beatIndex === 0;
-    const isAccent   = isFirstSub && state.accentEnabled;
+    const totalSubs   = state.timeSigUpper * state.subdivision;
+    const beatNum     = Math.floor(beatIndex / state.subdivision);
+    const accentState = state.accentPattern[beatNum] || 'normal';
+    const isAccent    = accentState === 'accent';
+    const isSilent    = accentState === 'silent';
 
-    state.pendingFlashes.push({
-      beatIndex,
-      totalSubs,
-      time,
-      isAccent,
-    });
+    state.pendingFlashes.push({ beatIndex, totalSubs, time, isAccent, beatNum });
 
-    playSound(state.soundType, time, isAccent);
+    if (!isSilent && !state.barMuted) {
+      const gaped = state.gapMode && Math.random() < state.gapProbability;
+      if (!gaped) playSound(state.soundType, time, isAccent);
+    }
   }
 
   function advanceBeat() {
@@ -194,20 +263,37 @@
     const totalSubs = state.timeSigUpper * state.subdivision;
     state.currentBeat = (state.currentBeat + 1) % totalSubs;
 
-    // Ramp: update BPM at measure boundary
-    if (state.rampActive && state.currentBeat === 0) {
-      advanceRamp();
+    if (state.currentBeat === 0) {
+      state.barCount++;
+
+      if (state.barBreakEnabled) {
+        state.barMuted = (state.barCount % state.barBreakEvery === 0);
+        updateBarBreakVisual();
+      }
+
+      if (state.rampActive) advanceRamp();
     }
   }
 
+  /* ─────────────────────────────────────────────
+     Playback Control
+  ───────────────────────────────────────────── */
   function startPlayback() {
     const ctx = getAudioCtx();
+    if (!ctx) return;
     ctx.resume();
     state.isPlaying          = true;
     state.currentBeat        = 0;
     state.nextNoteTime       = ctx.currentTime + 0.05;
     state.pendingFlashes     = [];
-    state.countInRemaining   = state.timeSigUpper;
+    state.barCount           = 0;
+    state.barMuted           = false;
+
+    if (state.countInEnabled) {
+      state.countInRemaining = state.timeSigUpper;
+    } else {
+      state.countInRemaining = 0;
+    }
 
     if (state.rampEnabled) initRamp();
 
@@ -223,13 +309,17 @@
     state.isPlaying        = false;
     state.rampActive       = false;
     state.countInRemaining = 0;
+    state.barMuted         = false;
     clearInterval(state.timerID);
-    state.timerID        = null;
-    state.pendingFlashes  = [];
-    beatDots.forEach(d => d.classList.remove('active', 'accent'));
+    state.timerID          = null;
+    state.pendingFlashes   = [];
+    beatDots.forEach(d => d.classList.remove('active', 'active-accent'));
     updatePlayButton(false);
     updateRampProgress(0);
+    updateProgressBar(0);
+    updateBarBreakVisual();
     hideCountIn();
+    announce('Metronome stopped');
   }
 
   /* ─────────────────────────────────────────────
@@ -283,6 +373,72 @@
   }
 
   /* ─────────────────────────────────────────────
+     Bar Break Visual
+  ───────────────────────────────────────────── */
+  function updateBarBreakVisual() {
+    const el = document.getElementById('bar-break-indicator');
+    if (!el) return;
+    el.classList.toggle('active', !!state.barMuted);
+  }
+
+  /* ─────────────────────────────────────────────
+     Beat Dots + Per-Beat Accent
+  ───────────────────────────────────────────── */
+  let beatDots = [];
+
+  function rebuildBeatDots() {
+    beatVisualizer.innerHTML = '';
+    beatDots = [];
+
+    // Sync accentPattern length to timeSigUpper
+    while (state.accentPattern.length < state.timeSigUpper) {
+      state.accentPattern.push('normal');
+    }
+    state.accentPattern.length = state.timeSigUpper;
+    // Default: at least beat 0 is accented
+    if (state.accentPattern.every(v => v !== 'accent')) {
+      state.accentPattern[0] = 'accent';
+    }
+
+    for (let i = 0; i < state.timeSigUpper; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'beat-dot beat-dot--' + state.accentPattern[i];
+      dot.dataset.beat = i;
+      dot.title = 'Beat ' + (i + 1) + ' — click to change accent';
+
+      dot.addEventListener('click', () => {
+        const cycle = ['normal', 'accent', 'silent'];
+        const cur   = state.accentPattern[i];
+        const next  = cycle[(cycle.indexOf(cur) + 1) % cycle.length];
+        state.accentPattern[i] = next;
+        dot.className = 'beat-dot beat-dot--' + next +
+          (dot.classList.contains('active')        ? ' active'        : '') +
+          (dot.classList.contains('active-accent') ? ' active-accent' : '');
+      });
+
+      beatVisualizer.appendChild(dot);
+      beatDots.push(dot);
+    }
+  }
+
+  function triggerDotFlash(dotIndex, isAccent) {
+    beatDots.forEach(d => d.classList.remove('active', 'active-accent'));
+    const dot = beatDots[dotIndex];
+    if (!dot) return;
+    dot.classList.remove('active', 'active-accent');
+    void dot.offsetWidth;
+    dot.classList.add('active');
+    if (isAccent) dot.classList.add('active-accent');
+    updateProgressBar((dotIndex + 1) / state.timeSigUpper);
+  }
+
+  function updateProgressBar(progress) {
+    if (barProgressFill) {
+      barProgressFill.style.width = (Math.min(1, progress) * 100).toFixed(1) + '%';
+    }
+  }
+
+  /* ─────────────────────────────────────────────
      Tap Tempo
   ───────────────────────────────────────────── */
   function onTapTempo() {
@@ -304,14 +460,13 @@
     for (let i = 1; i < state.tapTimes.length; i++) {
       total += state.tapTimes[i] - state.tapTimes[i - 1];
     }
-    const avg     = total / (state.tapTimes.length - 1);
-    const tapped  = Math.round(60000 / avg);
+    const avg    = total / (state.tapTimes.length - 1);
+    const tapped = Math.round(60000 / avg);
     setBpm(tapped);
 
     clearTimeout(state.tapTimeout);
     state.tapTimeout = setTimeout(() => { state.tapTimes = []; }, TAP_TIMEOUT);
 
-    // Tap button flash feedback
     tapBtn.classList.add('tapped');
     setTimeout(() => tapBtn.classList.remove('tapped'), 120);
   }
@@ -320,6 +475,12 @@
      Ramp
   ───────────────────────────────────────────── */
   function initRamp() {
+    if (state.rampStartBpm >= state.rampEndBpm) {
+      showRampError(true);
+      state.rampActive = false;
+      return;
+    }
+    showRampError(false);
     state.rampActive         = true;
     state.rampCurrentMeasure = 0;
     state.bpm                = state.rampStartBpm;
@@ -329,7 +490,6 @@
   function advanceRamp() {
     state.rampCurrentMeasure++;
     const t = state.rampCurrentMeasure / state.rampMeasures;
-
     if (t >= 1) {
       state.bpm        = state.rampEndBpm;
       state.rampActive = false;
@@ -337,7 +497,6 @@
       updateRampProgress(1);
       return;
     }
-
     state.bpm = Math.round(
       state.rampStartBpm + (state.rampEndBpm - state.rampStartBpm) * t
     );
@@ -351,18 +510,93 @@
     }
   }
 
+  function validateRamp() {
+    const ok = state.rampStartBpm < state.rampEndBpm;
+    showRampError(!ok);
+    return ok;
+  }
+
+  function showRampError(show) {
+    const el = document.getElementById('ramp-error');
+    if (el) el.style.display = show ? 'block' : 'none';
+  }
+
+  /* ─────────────────────────────────────────────
+     Practice Timer
+  ───────────────────────────────────────────── */
+  function startTimer() {
+    state.timerRemaining = state.timerDuration * 60;
+    updateTimerDisplay();
+    clearInterval(state.timerIntervalID);
+    state.timerIntervalID = setInterval(() => {
+      state.timerRemaining--;
+      updateTimerDisplay();
+      if (state.timerRemaining <= 0) {
+        clearInterval(state.timerIntervalID);
+        state.timerIntervalID = null;
+        if (state.isPlaying) stopPlayback();
+        // Completion sound: short ascending beep
+        const ctx = getAudioCtx();
+        if (ctx) {
+          [880, 1100, 1320].forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const g   = ctx.createGain();
+            g.connect(getDest());
+            osc.frequency.value = freq;
+            osc.type = 'sine';
+            g.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.15);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.25);
+            osc.connect(g);
+            osc.start(ctx.currentTime + i * 0.15);
+            osc.stop(ctx.currentTime + i * 0.15 + 0.3);
+          });
+        }
+        updateTimerBtn(false);
+      }
+    }, 1000);
+    updateTimerBtn(true);
+  }
+
+  function stopTimer() {
+    clearInterval(state.timerIntervalID);
+    state.timerIntervalID = null;
+    state.timerRemaining  = 0;
+    updateTimerDisplay();
+    updateTimerBtn(false);
+  }
+
+  function updateTimerDisplay() {
+    const el = document.getElementById('timer-display');
+    if (!el) return;
+    if (state.timerRemaining <= 0) {
+      el.textContent = '--:--';
+      return;
+    }
+    const m = Math.floor(state.timerRemaining / 60).toString().padStart(2, '0');
+    const s = (state.timerRemaining % 60).toString().padStart(2, '0');
+    el.textContent = m + ':' + s;
+  }
+
+  function updateTimerBtn(running) {
+    const btn = document.getElementById('timer-start-btn');
+    if (!btn) return;
+    btn.textContent  = running ? 'STOP' : 'START';
+    btn.dataset.running = running ? '1' : '';
+  }
+
   /* ─────────────────────────────────────────────
      setBpm — single source of truth
   ───────────────────────────────────────────── */
   function setBpm(newBpm) {
-    const clamped    = Math.max(40, Math.min(240, Math.round(newBpm)));
-    state.bpm        = clamped;
+    const clamped = Math.max(40, Math.min(240, Math.round(newBpm)));
+    state.bpm     = clamped;
     updateBpmUI(clamped);
     document.dispatchEvent(new CustomEvent('bpm-change', { detail: { bpm: clamped } }));
+    announce('BPM ' + clamped);
   }
 
   function updateBpmUI(bpm) {
-    bpmInput.value = bpm;
+    bpmInput.value  = bpm;
     bpmSlider.value = bpm;
     const pct = ((bpm - 40) / 200 * 100).toFixed(1) + '%';
     bpmSlider.style.setProperty('--slider-pct', pct);
@@ -375,29 +609,13 @@
   }
 
   /* ─────────────────────────────────────────────
-     Beat Dots
+     Screen Reader Announcer
   ───────────────────────────────────────────── */
-  let beatDots = [];
-
-  function rebuildBeatDots() {
-    beatVisualizer.innerHTML = '';
-    beatDots = [];
-    for (let i = 0; i < state.timeSigUpper; i++) {
-      const dot = document.createElement('div');
-      dot.className = 'beat-dot' + (i === 0 ? ' beat-dot--first' : '');
-      beatVisualizer.appendChild(dot);
-      beatDots.push(dot);
-    }
-  }
-
-  function triggerDotFlash(dotIndex, isAccent) {
-    beatDots.forEach(d => d.classList.remove('active', 'accent'));
-    const dot = beatDots[dotIndex];
-    if (!dot) return;
-    dot.classList.remove('active', 'accent');
-    void dot.offsetWidth; // force reflow to restart animation
-    dot.classList.add('active');
-    if (isAccent) dot.classList.add('accent');
+  function announce(msg) {
+    const el = document.getElementById('sr-announcer');
+    if (!el) return;
+    el.textContent = '';
+    setTimeout(() => { el.textContent = msg; }, 50);
   }
 
   /* ─────────────────────────────────────────────
@@ -405,9 +623,10 @@
   ───────────────────────────────────────────── */
   function updatePlayButton(playing) {
     playPauseBtn.classList.toggle('running', playing);
-    playPauseBtn.querySelector('.btn-label').textContent = playing ? 'STOP' : 'START';
+    playPauseBtn.querySelector('.btn-label').textContent    = playing ? 'STOP' : 'START';
     playPauseBtn.querySelector('.play-icon').style.display  = playing ? 'none' : '';
     playPauseBtn.querySelector('.pause-icon').style.display = playing ? '' : 'none';
+    playPauseBtn.setAttribute('aria-label', playing ? 'Stop metronome' : 'Start metronome');
   }
 
   function togglePlayPause() {
@@ -416,6 +635,7 @@
     } else {
       startPlayback();
       updatePlayButton(true);
+      announce('Metronome started at ' + state.bpm + ' BPM');
     }
   }
 
@@ -428,7 +648,7 @@
   }
 
   /* ─────────────────────────────────────────────
-     BPM nudge hold-to-repeat
+     BPM nudge hold-to-repeat (mouse + touch)
   ───────────────────────────────────────────── */
   function setupNudge(btn, delta) {
     let intervalId = null;
@@ -436,45 +656,49 @@
 
     function fire() { setBpm(state.bpm + delta); }
 
-    btn.addEventListener('mousedown', () => {
+    function start() {
       fire();
       timeoutId = setTimeout(() => {
         intervalId = setInterval(fire, 60);
       }, 400);
-    });
+    }
 
     function cancel() {
       clearTimeout(timeoutId);
       clearInterval(intervalId);
+      timeoutId  = null;
+      intervalId = null;
     }
 
-    btn.addEventListener('mouseup', cancel);
+    btn.addEventListener('mousedown', start);
+    btn.addEventListener('mouseup',   cancel);
     btn.addEventListener('mouseleave', cancel);
 
-    // Touch support
-    btn.addEventListener('touchstart', e => { e.preventDefault(); fire(); });
+    btn.addEventListener('touchstart', e => { e.preventDefault(); start(); }, { passive: false });
+    btn.addEventListener('touchend',   e => { e.preventDefault(); cancel(); });
+    btn.addEventListener('touchcancel', cancel);
   }
 
   /* ─────────────────────────────────────────────
      DOM References
   ───────────────────────────────────────────── */
-  const beatVisualizer  = document.getElementById('beat-visualizer');
-  const bpmInput        = document.getElementById('bpm-input');
-  const bpmSlider       = document.getElementById('bpm-slider');
-  const bpmUpBtn        = document.getElementById('bpm-up');
-  const bpmDownBtn      = document.getElementById('bpm-down');
-  const playPauseBtn    = document.getElementById('play-pause-btn');
-  const tapBtn          = document.getElementById('tap-tempo-btn');
-  const noteGroup       = document.getElementById('note-group');
-  const timeSigGroup    = document.getElementById('timesig-group');
-  const soundGroup      = document.getElementById('sound-group');
-  const accentToggle    = document.getElementById('accent-enabled');
-  const rampEnabledChk  = document.getElementById('ramp-enabled');
-  const rampControls    = document.getElementById('ramp-controls');
-  const rampStartInput  = document.getElementById('ramp-start-bpm');
-  const rampEndInput    = document.getElementById('ramp-end-bpm');
-  const rampMeasuresIn  = document.getElementById('ramp-measures');
+  const beatVisualizer   = document.getElementById('beat-visualizer');
+  const bpmInput         = document.getElementById('bpm-input');
+  const bpmSlider        = document.getElementById('bpm-slider');
+  const bpmUpBtn         = document.getElementById('bpm-up');
+  const bpmDownBtn       = document.getElementById('bpm-down');
+  const playPauseBtn     = document.getElementById('play-pause-btn');
+  const tapBtn           = document.getElementById('tap-tempo-btn');
+  const noteGroup        = document.getElementById('note-group');
+  const timeSigGroup     = document.getElementById('timesig-group');
+  const soundGroup       = document.getElementById('sound-group');
+  const rampEnabledChk   = document.getElementById('ramp-enabled');
+  const rampControls     = document.getElementById('ramp-controls');
+  const rampStartInput   = document.getElementById('ramp-start-bpm');
+  const rampEndInput     = document.getElementById('ramp-end-bpm');
+  const rampMeasuresIn   = document.getElementById('ramp-measures');
   const rampProgressFill = document.getElementById('ramp-progress-fill');
+  const barProgressFill  = document.getElementById('bar-progress-fill');
 
   /* ─────────────────────────────────────────────
      Event Listeners
@@ -491,15 +715,44 @@
   setupNudge(bpmUpBtn, 1);
   setupNudge(bpmDownBtn, -1);
 
+  // BPM Presets
+  const presetsEl = document.getElementById('bpm-presets');
+  if (presetsEl) {
+    presetsEl.addEventListener('click', e => {
+      const btn = e.target.closest('.bpm-preset');
+      if (!btn) return;
+      setBpm(Number(btn.dataset.bpm));
+    });
+  }
+
+  // Master Volume
+  const masterVolEl = document.getElementById('master-volume');
+  if (masterVolEl) {
+    masterVolEl.addEventListener('input', () => {
+      state.masterVolume = Number(masterVolEl.value) / 100;
+      if (masterGain) masterGain.gain.value = state.masterVolume;
+      masterVolEl.style.setProperty('--slider-pct', masterVolEl.value + '%');
+      const lbl = document.getElementById('master-volume-label');
+      if (lbl) lbl.textContent = masterVolEl.value + '%';
+    });
+  }
+
+  // Count-In toggle
+  const countInChk = document.getElementById('count-in-enabled');
+  if (countInChk) {
+    countInChk.addEventListener('change', () => {
+      state.countInEnabled = countInChk.checked;
+    });
+  }
+
   // Note value (subdivision)
   noteGroup.addEventListener('click', e => {
     const btn = e.target.closest('.seg-btn');
     if (!btn) return;
-    const sub = Number(btn.dataset.subdivision);
-    state.subdivision = sub;
+    state.subdivision = Number(btn.dataset.subdivision);
     activateSeg(noteGroup, btn);
     if (state.isPlaying) {
-      state.currentBeat = 0;
+      state.currentBeat    = 0;
       state.pendingFlashes = [];
     }
   });
@@ -513,6 +766,10 @@
     activateSeg(timeSigGroup, btn);
     state.currentBeat    = 0;
     state.pendingFlashes = [];
+    state.accentPattern  = state.accentPattern.slice(0, state.timeSigUpper);
+    while (state.accentPattern.length < state.timeSigUpper) {
+      state.accentPattern.push('normal');
+    }
     rebuildBeatDots();
   });
 
@@ -522,11 +779,6 @@
     if (!btn) return;
     state.soundType = btn.dataset.sound;
     activateSeg(soundGroup, btn);
-  });
-
-  // Accent
-  accentToggle.addEventListener('change', () => {
-    state.accentEnabled = accentToggle.checked;
   });
 
   // Ramp toggle
@@ -539,23 +791,108 @@
   });
 
   rampStartInput.addEventListener('change', () => {
-    state.rampStartBpm = Math.max(40, Math.min(160, Number(rampStartInput.value)));
+    state.rampStartBpm = Math.max(40, Math.min(240, Number(rampStartInput.value)));
     rampStartInput.value = state.rampStartBpm;
+    validateRamp();
   });
   rampEndInput.addEventListener('change', () => {
-    state.rampEndBpm = Math.max(40, Math.min(160, Number(rampEndInput.value)));
+    state.rampEndBpm = Math.max(40, Math.min(240, Number(rampEndInput.value)));
     rampEndInput.value = state.rampEndBpm;
+    validateRamp();
   });
   rampMeasuresIn.addEventListener('change', () => {
     state.rampMeasures = Math.max(1, Math.min(64, Number(rampMeasuresIn.value)));
     rampMeasuresIn.value = state.rampMeasures;
   });
 
-  // Keyboard shortcut: Space = play/stop
+  // Gap Mode
+  const gapChk = document.getElementById('gap-mode-enabled');
+  const gapSlider = document.getElementById('gap-density');
+  if (gapChk) {
+    gapChk.addEventListener('change', () => {
+      state.gapMode = gapChk.checked;
+      const ctrl = document.getElementById('gap-controls');
+      if (ctrl) ctrl.classList.toggle('expanded', state.gapMode);
+    });
+  }
+  if (gapSlider) {
+    gapSlider.addEventListener('input', () => {
+      state.gapProbability = Number(gapSlider.value) / 100;
+      const label = document.getElementById('gap-density-label');
+      if (label) label.textContent = gapSlider.value + '%';
+    });
+  }
+
+  // Bar Break
+  const barBreakChk    = document.getElementById('bar-break-enabled');
+  const barBreakSelect = document.getElementById('bar-break-every');
+  if (barBreakChk) {
+    barBreakChk.addEventListener('change', () => {
+      state.barBreakEnabled = barBreakChk.checked;
+      const ctrl = document.getElementById('bar-break-controls');
+      if (ctrl) ctrl.classList.toggle('expanded', state.barBreakEnabled);
+      if (!state.barBreakEnabled) {
+        state.barMuted = false;
+        updateBarBreakVisual();
+      }
+    });
+  }
+  if (barBreakSelect) {
+    barBreakSelect.addEventListener('change', () => {
+      state.barBreakEvery = Number(barBreakSelect.value);
+    });
+  }
+
+  // Practice Timer
+  const timerStartBtn    = document.getElementById('timer-start-btn');
+  const timerDurationSel = document.getElementById('timer-duration');
+  const timerEnabledChk  = document.getElementById('timer-enabled');
+  if (timerEnabledChk) {
+    timerEnabledChk.addEventListener('change', () => {
+      const ctrl = document.getElementById('timer-controls');
+      if (ctrl) ctrl.classList.toggle('expanded', timerEnabledChk.checked);
+      const wrap = document.getElementById('header-timer-wrap');
+      if (wrap) wrap.style.display = timerEnabledChk.checked ? '' : 'none';
+    });
+  }
+  if (timerStartBtn) {
+    timerStartBtn.addEventListener('click', () => {
+      if (timerStartBtn.dataset.running) {
+        stopTimer();
+      } else {
+        if (timerDurationSel) state.timerDuration = Number(timerDurationSel.value);
+        startTimer();
+      }
+    });
+  }
+
+  // Keyboard shortcuts
   document.addEventListener('keydown', e => {
-    if (e.code === 'Space' && e.target === document.body) {
-      e.preventDefault();
-      togglePlayPause();
+    if (e.target !== document.body && e.target.tagName !== 'BODY') return;
+    switch (e.code) {
+      case 'Space':
+        e.preventDefault();
+        togglePlayPause();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setBpm(state.bpm + (e.shiftKey ? 10 : 1));
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        setBpm(state.bpm - (e.shiftKey ? 10 : 1));
+        break;
+      case 'KeyT':
+        onTapTempo();
+        tapBtn.classList.add('tapped');
+        setTimeout(() => tapBtn.classList.remove('tapped'), 120);
+        break;
+      case 'KeyG':
+        if (gapChk) { gapChk.checked = !gapChk.checked; gapChk.dispatchEvent(new Event('change')); }
+        break;
+      case 'KeyB':
+        if (barBreakChk) { barBreakChk.checked = !barBreakChk.checked; barBreakChk.dispatchEvent(new Event('change')); }
+        break;
     }
   });
 
@@ -571,9 +908,15 @@
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const tab = btn.dataset.tab;
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
-      document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
-      if (state.isPlaying) stopPlayback();
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.toggle('active', b === btn);
+        b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+      });
+      document.querySelectorAll('.tab-panel').forEach(p => {
+        p.classList.toggle('active', p.id === 'tab-' + tab);
+      });
+      // Only stop the metronome tab's playback when switching away from it
+      if (tab !== 'metronome' && state.isPlaying) stopPlayback();
     });
   });
 
@@ -583,7 +926,13 @@
   rebuildBeatDots();
   setBpm(state.bpm);
 
-  // Expose shared audio context for rhythm.js
+  // Expose public API for rhythm.js
   window.getSharedAudioCtx = getAudioCtx;
+  window.metronome = {
+    setBpm:     setBpm,
+    tap:        onTapTempo,
+    getBpm:     () => state.bpm,
+    isPlaying:  () => state.isPlaying,
+  };
 
 })();
