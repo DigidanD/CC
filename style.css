@@ -666,9 +666,10 @@ body {
 }
 
 .ctrl-trigger-arrow {
-  font-size: 0.5rem;
-  color: var(--text-muted);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
   transition: transform 0.2s;
+  line-height: 1;
 }
 
 .ctrl-sel.open .ctrl-trigger-arrow {
@@ -1266,6 +1267,35 @@ body {
 }
 
 .play-icon, .pause-icon { font-size: 0.9rem; }
+
+/* ── Play Timer Badge ── */
+.play-timer-badge {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 2px;
+  min-width: 50px;
+}
+
+.play-timer-time {
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  letter-spacing: 1px;
+  line-height: 1;
+  text-shadow: 0 0 12px var(--accent-glow);
+}
+
+.play-timer-label {
+  font-size: 0.55rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
 
 /* ── Rhythm Buddy ── */
 .rhythm-header {

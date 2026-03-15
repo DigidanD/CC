@@ -551,6 +551,8 @@
   function startTimer() {
     state.timerRemaining = state.timerDuration * 60;
     updateTimerDisplay();
+    const badge = document.getElementById('play-timer-badge');
+    if (badge) badge.style.display = 'flex';
     clearInterval(state.timerIntervalID);
     state.timerIntervalID = setInterval(() => {
       state.timerRemaining--;
@@ -576,6 +578,8 @@
           });
         }
         updateTimerBtn(false);
+        const badge = document.getElementById('play-timer-badge');
+        if (badge) badge.style.display = 'none';
       }
     }, 1000);
     updateTimerBtn(true);
@@ -587,18 +591,23 @@
     state.timerRemaining  = 0;
     updateTimerDisplay();
     updateTimerBtn(false);
+    const badge = document.getElementById('play-timer-badge');
+    if (badge) badge.style.display = 'none';
   }
 
   function updateTimerDisplay() {
-    const el = document.getElementById('timer-display');
-    if (!el) return;
+    const el    = document.getElementById('timer-display');
+    const badge = document.getElementById('play-timer-time');
     if (state.timerRemaining <= 0) {
-      el.textContent = '--:--';
+      if (el)    el.textContent    = '--:--';
+      if (badge) badge.textContent = '--:--';
       return;
     }
-    const m = Math.floor(state.timerRemaining / 60).toString().padStart(2, '0');
-    const s = (state.timerRemaining % 60).toString().padStart(2, '0');
-    el.textContent = m + ':' + s;
+    const m   = Math.floor(state.timerRemaining / 60).toString().padStart(2, '0');
+    const s   = (state.timerRemaining % 60).toString().padStart(2, '0');
+    const txt = m + ':' + s;
+    if (el)    el.textContent    = txt;
+    if (badge) badge.textContent = txt;
   }
 
   function updateTimerBtn(running) {
