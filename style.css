@@ -545,6 +545,9 @@ body {
 .ctrl-bar {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+}
+.ctrl-bar--4 {
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
 }
 

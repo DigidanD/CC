@@ -23,6 +23,7 @@
 
     // Per-beat accent: 'accent' | 'normal' | 'silent'  (array indexed by beat)
     accentPattern:       ['accent', 'normal', 'normal', 'normal'],
+    accentPreset:        'beat1',
 
     masterVolume:        0.8,
     countInEnabled:      true,
@@ -744,10 +745,10 @@
     });
   }
 
-  // ── Compact Dropdown Selectors (Note / Time Sig / Sound) ──────────────
+  // ── Compact Dropdown Selectors (Note / Time Sig / Sound / Accent) ──────
 
   function closeAllCtrlSels(except) {
-    ['note-sel', 'timesig-sel', 'sound-sel'].forEach(id => {
+    ['note-sel', 'timesig-sel', 'sound-sel', 'accent-sel'].forEach(id => {
       if (id !== except) {
         const el = document.getElementById(id);
         if (el) el.classList.remove('open');
@@ -755,7 +756,7 @@
     });
   }
 
-  ['note-sel', 'timesig-sel', 'sound-sel'].forEach(selId => {
+  ['note-sel', 'timesig-sel', 'sound-sel', 'accent-sel'].forEach(selId => {
     const sel = document.getElementById(selId);
     if (!sel) return;
     sel.querySelector('.ctrl-trigger').addEventListener('click', e => {
@@ -793,8 +794,7 @@
     document.getElementById('timesig-sel').classList.remove('open');
     state.currentBeat    = 0;
     state.pendingFlashes = [];
-    state.accentPattern  = state.accentPattern.slice(0, state.timeSigUpper);
-    while (state.accentPattern.length < state.timeSigUpper) state.accentPattern.push('normal');
+    applyAccentPreset(state.accentPreset || 'beat1');
     rebuildBeatDots();
   });
 
@@ -809,6 +809,39 @@
     if (valEl) valEl.textContent = btn.textContent;
     document.getElementById('sound-sel').classList.remove('open');
   });
+
+  // Accent preset
+  const ACCENT_LABELS = { beat1: '1', '1and3': '1+3', '2and4': '2+4', all: 'All', off: 'Off' };
+
+  function applyAccentPreset(preset) {
+    const n = state.timeSigUpper;
+    let pat;
+    switch (preset) {
+      case '1and3': pat = Array.from({length: n}, (_, i) => (i === 0 || i === 2) ? 'accent' : 'normal'); break;
+      case '2and4': pat = Array.from({length: n}, (_, i) => (i === 1 || i === 3) ? 'accent' : 'normal'); break;
+      case 'all':   pat = Array(n).fill('accent'); break;
+      case 'off':   pat = Array(n).fill('normal'); break;
+      default:      pat = Array.from({length: n}, (_, i) => i === 0 ? 'accent' : 'normal'); preset = 'beat1';
+    }
+    state.accentPattern = pat;
+    state.accentPreset  = preset;
+    rebuildBeatDots();
+  }
+
+  const accentGroup = document.getElementById('accent-group');
+  if (accentGroup) {
+    accentGroup.addEventListener('click', e => {
+      const btn = e.target.closest('.ctrl-opt');
+      if (!btn) return;
+      const preset = btn.dataset.accent;
+      accentGroup.querySelectorAll('.ctrl-opt').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const valEl = document.getElementById('accent-val');
+      if (valEl) valEl.textContent = ACCENT_LABELS[preset] || preset;
+      document.getElementById('accent-sel').classList.remove('open');
+      applyAccentPreset(preset);
+    });
+  }
 
   // ── Count-In pill ──────────────────────────────────────────────────────
   const countInPill = document.getElementById('count-in-pill');

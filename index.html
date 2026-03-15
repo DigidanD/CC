@@ -94,8 +94,8 @@
       <!-- Accent hint -->
       <div class="accent-hint">Tap a beat dot to cycle: normal &#8594; accent &#8594; silent</div>
 
-      <!-- ── Controls: 3 compact dropdown selectors ── -->
-      <div class="ctrl-bar">
+      <!-- ── Controls: 4 compact dropdown selectors ── -->
+      <div class="ctrl-bar ctrl-bar--4">
 
         <!-- Note Value -->
         <div class="ctrl-sel" id="note-sel">
@@ -144,6 +144,22 @@
             <button class="ctrl-opt"        data-sound="hihat"   role="option">Hi-Hat</button>
             <button class="ctrl-opt"        data-sound="rim"     role="option">Rim</button>
             <button class="ctrl-opt"        data-sound="cowbell" role="option">Cowbell</button>
+          </div>
+        </div>
+
+        <!-- Accent -->
+        <div class="ctrl-sel" id="accent-sel">
+          <button class="ctrl-trigger" id="accent-trigger" aria-haspopup="listbox">
+            <span class="ctrl-trigger-val" id="accent-val">1</span>
+            <span class="ctrl-trigger-label">ACCENT</span>
+            <span class="ctrl-trigger-arrow">&#9660;</span>
+          </button>
+          <div class="ctrl-sel-panel" id="accent-group" role="listbox" aria-label="Accent pattern">
+            <button class="ctrl-opt active" data-accent="beat1"  role="option">Beat 1</button>
+            <button class="ctrl-opt"        data-accent="1and3"  role="option">1 &amp; 3</button>
+            <button class="ctrl-opt"        data-accent="2and4"  role="option">2 &amp; 4</button>
+            <button class="ctrl-opt"        data-accent="all"    role="option">All Beats</button>
+            <button class="ctrl-opt"        data-accent="off"    role="option">Off</button>
           </div>
         </div>
 
