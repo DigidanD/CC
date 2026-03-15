@@ -1191,6 +1191,35 @@ body {
 
 .btn-timer-start:hover { opacity: 0.85; }
 
+/* ── Ramp RUN button ── */
+.ramp-run-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.btn-ramp-run {
+  padding: 7px 20px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s;
+  min-height: 34px;
+}
+
+.btn-ramp-run:hover { opacity: 0.85; }
+
+.btn-ramp-run.active {
+  background: var(--text-muted);
+  cursor: default;
+}
+
 /* ── Action Section ── */
 .action-section {
   display: flex;

@@ -333,6 +333,7 @@
     beatDots.forEach(d => d.classList.remove('active', 'active-accent'));
     updatePlayButton(false);
     updateRampProgress(0);
+    setRampRunBtn(false);
     updateProgressBar(0);
     updateBarBreakVisual();
     hideCountIn();
@@ -498,6 +499,17 @@
   /* ─────────────────────────────────────────────
      Ramp
   ───────────────────────────────────────────── */
+  function setRampRunBtn(running) {
+    if (!rampRunBtn) return;
+    if (running) {
+      rampRunBtn.textContent = '⏹ STOP';
+      rampRunBtn.classList.add('active');
+    } else {
+      rampRunBtn.innerHTML = '&#9654; RUN';
+      rampRunBtn.classList.remove('active');
+    }
+  }
+
   function initRamp() {
     if (state.rampStartBpm >= state.rampEndBpm) {
       showRampError(true);
@@ -509,6 +521,7 @@
     state.rampCurrentMeasure = 0;
     state.bpm                = state.rampStartBpm;
     updateBpmUI(state.bpm);
+    setRampRunBtn(true);
   }
 
   function advanceRamp() {
@@ -519,6 +532,7 @@
       state.rampActive = false;
       updateBpmUI(state.bpm);
       updateRampProgress(1);
+      setRampRunBtn(false);
       return;
     }
     state.bpm = Math.round(
@@ -738,6 +752,7 @@
   const rampEndInput     = document.getElementById('ramp-end-bpm');
   const rampMeasuresIn   = document.getElementById('ramp-measures');
   const rampProgressFill = document.getElementById('ramp-progress-fill');
+  const rampRunBtn       = document.getElementById('ramp-run-btn');
   const barProgressFill  = document.getElementById('bar-progress-fill');
 
   /* ─────────────────────────────────────────────
@@ -921,6 +936,26 @@
     state.rampMeasures = Math.max(1, Math.min(64, Number(rampMeasuresIn.value)));
     rampMeasuresIn.value = state.rampMeasures;
   });
+
+  if (rampRunBtn) {
+    rampRunBtn.addEventListener('click', () => {
+      if (state.rampActive) {
+        // Already running — stop the ramp (keep metronome going)
+        state.rampActive = false;
+        updateRampProgress(0);
+        setRampRunBtn(false);
+        return;
+      }
+      if (!validateRamp()) return;
+      if (state.isPlaying) {
+        // Hot-start: reset and launch ramp immediately without stopping
+        initRamp();
+      } else {
+        // Metronome is stopped — start it (initRamp called inside startPlayback)
+        startPlayback();
+      }
+    });
+  }
 
   // Gap Mode
   toggleFeatPill('gap-pill', 'gap-controls',
