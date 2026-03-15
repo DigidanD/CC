@@ -8,9 +8,11 @@
 </head>
 <body>
 
-  <div id="audio-error" class="audio-error-banner" style="display:none">
+  <div id="audio-error" class="audio-toast" style="display:none">
     ⚠️ Web Audio API not supported. Please use Chrome or Firefox.
+    <button class="audio-toast-close" aria-label="Dismiss" onclick="this.parentElement.style.display='none'">✕</button>
   </div>
+  <div id="screen-flash" class="screen-flash"></div>
   <div id="sr-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
   <div class="app">

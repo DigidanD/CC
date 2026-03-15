@@ -69,6 +69,7 @@
   let audioCtx    = null;
   let noiseBuffer = null;
   let masterGain  = null;
+  let wakeLock    = null;
 
   function getAudioCtx() {
     if (!audioCtx) {
@@ -87,7 +88,20 @@
 
   function showAudioError() {
     const el = document.getElementById('audio-error');
-    if (el) el.style.display = 'block';
+    if (el) {
+      el.style.display = 'flex';
+      setTimeout(() => { el.style.display = 'none'; }, 6000);
+    }
+  }
+
+  async function requestWakeLock() {
+    if ('wakeLock' in navigator) {
+      try { wakeLock = await navigator.wakeLock.request('screen'); } catch (_) {}
+    }
+  }
+
+  function releaseWakeLock() {
+    if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
   }
 
   function createNoiseBuffer(ctx) {
@@ -298,6 +312,7 @@
 
     if (state.rampEnabled) initRamp();
 
+    requestWakeLock();
     state.timerID = setInterval(scheduler, SCHEDULER_INTERVAL);
 
     if (!state.rafRunning) {
@@ -311,6 +326,7 @@
     state.rampActive       = false;
     state.countInRemaining = 0;
     state.barMuted         = false;
+    releaseWakeLock();
     clearInterval(state.timerID);
     state.timerID          = null;
     state.pendingFlashes   = [];
@@ -431,6 +447,13 @@
     dot.classList.add('active');
     if (isAccent) dot.classList.add('active-accent');
     updateProgressBar((dotIndex + 1) / state.timeSigUpper);
+
+    const flashEl = document.getElementById('screen-flash');
+    if (flashEl) {
+      flashEl.classList.remove('flash-beat', 'flash-accent');
+      void flashEl.offsetWidth;
+      flashEl.classList.add(isAccent ? 'flash-accent' : 'flash-beat');
+    }
   }
 
   function updateProgressBar(progress) {
