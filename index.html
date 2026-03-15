@@ -92,10 +92,6 @@
           <span class="pause-icon" style="display:none">&#9646;&#9646;</span>
           <span class="btn-label">START</span>
         </button>
-        <div class="play-timer-badge" id="play-timer-badge" style="display:none">
-          <span class="play-timer-time" id="play-timer-time">--:--</span>
-          <span class="play-timer-label">left</span>
-        </div>
       </section>
 
       <!-- ── Controls: 4 compact dropdown selectors ── -->
@@ -106,7 +102,7 @@
           <button class="ctrl-trigger" id="note-trigger" aria-haspopup="listbox">
             <span class="ctrl-trigger-val" id="note-val">&#9833;</span>
             <span class="ctrl-trigger-label">NOTE</span>
-            <span class="ctrl-trigger-arrow">&#9660;</span>
+            <span class="ctrl-trigger-arrow"></span>
           </button>
           <div class="ctrl-sel-panel" id="note-group" role="listbox" aria-label="Note value">
             <button class="ctrl-opt active" data-subdivision="1" role="option">&#9833; Quarter</button>
@@ -122,7 +118,7 @@
           <button class="ctrl-trigger" id="timesig-trigger" aria-haspopup="listbox">
             <span class="ctrl-trigger-val" id="timesig-val">4/4</span>
             <span class="ctrl-trigger-label">TIME</span>
-            <span class="ctrl-trigger-arrow">&#9660;</span>
+            <span class="ctrl-trigger-arrow"></span>
           </button>
           <div class="ctrl-sel-panel" id="timesig-group" role="listbox" aria-label="Time signature">
             <button class="ctrl-opt"        data-upper="2" data-lower="4" role="option">2/4</button>
@@ -139,7 +135,7 @@
           <button class="ctrl-trigger" id="sound-trigger" aria-haspopup="listbox">
             <span class="ctrl-trigger-val" id="sound-val">Click</span>
             <span class="ctrl-trigger-label">SOUND</span>
-            <span class="ctrl-trigger-arrow">&#9660;</span>
+            <span class="ctrl-trigger-arrow"></span>
           </button>
           <div class="ctrl-sel-panel" id="sound-group" role="listbox" aria-label="Sound type">
             <button class="ctrl-opt active" data-sound="click"   role="option">Click</button>
@@ -156,7 +152,7 @@
           <button class="ctrl-trigger" id="accent-trigger" aria-haspopup="listbox">
             <span class="ctrl-trigger-val" id="accent-val">1</span>
             <span class="ctrl-trigger-label">ACCENT</span>
-            <span class="ctrl-trigger-arrow">&#9660;</span>
+            <span class="ctrl-trigger-arrow"></span>
           </button>
           <div class="ctrl-sel-panel" id="accent-group" role="listbox" aria-label="Accent pattern">
             <button class="ctrl-opt active" data-accent="beat1"  role="option">Beat 1</button>
@@ -246,6 +242,10 @@
               <option value="60">60 min</option>
             </select>
             <button class="btn-timer-start" id="timer-start-btn">Start</button>
+            <div class="play-timer-badge" id="play-timer-badge" style="display:none">
+              <span class="play-timer-time" id="play-timer-time">--:--</span>
+              <span class="play-timer-label">left</span>
+            </div>
           </div>
         </div>
 
