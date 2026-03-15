@@ -545,10 +545,23 @@ body {
 .ctrl-bar {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 .ctrl-bar--4 {
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+}
+
+/* Smaller triggers in 4-col mode to stay square */
+.ctrl-bar--4 .ctrl-trigger {
+  padding: 7px 4px;
+  min-height: 50px;
+}
+.ctrl-bar--4 .ctrl-trigger-val {
+  font-size: 0.95rem;
+}
+.ctrl-bar--4 .ctrl-trigger-label {
+  font-size: 0.5rem;
+  letter-spacing: 1.5px;
 }
 
 .ctrl-sel {
@@ -1392,50 +1405,53 @@ body {
   color: var(--accent);
 }
 
-/* ── Pattern Grid ── */
+/* ── Pattern Grid ── premium grouped list ── */
 .pattern-grid {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  max-height: 220px;
+  max-height: 224px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
-  padding-right: 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
-.pattern-grid::-webkit-scrollbar { width: 4px; }
+.pattern-grid::-webkit-scrollbar { width: 3px; }
 .pattern-grid::-webkit-scrollbar-track { background: transparent; }
 .pattern-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
 .pattern-card {
-  padding: 6px 12px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
-  min-height: 34px;
+  gap: 10px;
+  height: 38px;
+  padding: 0 14px 0 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 0.12s, border-left-color 0.12s;
+  flex-shrink: 0;
 }
 
-.pattern-card:hover {
-  background: var(--accent-dim);
-  border-color: var(--accent);
-}
+.pattern-card:first-child { border-radius: calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0 0; }
+.pattern-card:last-child  { border-bottom: none; border-radius: 0 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px); }
+
+.pattern-card:hover  { background: var(--accent-dim); }
 
 .pattern-card.active {
-  background: var(--accent-dim);
-  border-color: var(--accent);
-  box-shadow: 0 0 10px var(--accent-glow);
+  background: rgba(232, 130, 0, 0.09);
+  border-left-color: var(--accent);
 }
 
 .pattern-card-name {
   flex: 1;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
@@ -1446,10 +1462,12 @@ body {
 .pattern-card-bpm {
   font-size: 0.62rem;
   color: var(--text-muted);
-  letter-spacing: 0.3px;
   white-space: nowrap;
   flex-shrink: 0;
+  transition: color 0.12s;
 }
+
+.pattern-card.active .pattern-card-bpm { color: var(--accent); }
 
 /* ── Mini Groove Preview — hidden in compact list mode ── */
 .pattern-mini { display: none; }
