@@ -1397,12 +1397,16 @@ body {
   white-space: nowrap;
 }
 
-.cat-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+.cat-btn:hover {
+  border-color: rgba(240,144,16,0.5);
+  color: var(--text-primary);
+}
 
 .cat-btn.active {
-  background: var(--accent-dim);
+  background: var(--accent);
   border-color: var(--accent);
-  color: var(--accent);
+  color: #000;
+  font-weight: 700;
 }
 
 /* ── Pattern Grid ── premium grouped list ── */
@@ -1410,9 +1414,10 @@ body {
   display: flex;
   flex-direction: column;
   max-height: 224px;
-  overflow-y: auto;
+  overflow: hidden;       /* clips children to border-radius */
+  overflow-y: auto;       /* re-enables vertical scroll */
   scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -1420,38 +1425,36 @@ body {
 
 .pattern-grid::-webkit-scrollbar { width: 3px; }
 .pattern-grid::-webkit-scrollbar-track { background: transparent; }
-.pattern-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.pattern-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 2px; }
 
 .pattern-card {
   display: flex;
-  flex-direction: row;
   align-items: center;
   gap: 10px;
   height: 38px;
-  padding: 0 14px 0 12px;
+  padding: 0 14px 0 13px;
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
   border-left: 3px solid transparent;
   border-radius: 0;
   cursor: pointer;
-  transition: background 0.12s, border-left-color 0.12s;
+  transition: background 0.12s, border-left-color 0.15s;
   flex-shrink: 0;
 }
 
-.pattern-card:first-child { border-radius: calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0 0; }
-.pattern-card:last-child  { border-bottom: none; border-radius: 0 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px); }
+.pattern-card:last-child { border-bottom: none; }
 
-.pattern-card:hover  { background: var(--accent-dim); }
+.pattern-card:hover { background: rgba(255,255,255,0.04); }
 
 .pattern-card.active {
-  background: rgba(232, 130, 0, 0.09);
+  background: rgba(240, 144, 16, 0.1);
   border-left-color: var(--accent);
 }
 
 .pattern-card-name {
   flex: 1;
-  font-size: 0.8rem;
+  font-size: 0.79rem;
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
@@ -1459,8 +1462,10 @@ body {
   text-overflow: ellipsis;
 }
 
+.pattern-card.active .pattern-card-name { color: #fff; }
+
 .pattern-card-bpm {
-  font-size: 0.62rem;
+  font-size: 0.61rem;
   color: var(--text-muted);
   white-space: nowrap;
   flex-shrink: 0;
