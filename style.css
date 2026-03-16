@@ -141,9 +141,52 @@ body {
   text-align: center;
   padding-top: 12px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.header-right {
+  display: flex;
   align-items: center;
   gap: 8px;
+  position: relative;
+}
+
+.btn-save {
+  padding: 5px 14px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.btn-save:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.save-toast {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--bg-card-raised);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 100;
 }
 
 .app-title {
@@ -432,11 +475,11 @@ body {
 }
 
 .bpm-number {
-  width: 110px;
+  width: 120px;
   background: transparent;
   border: none;
   color: var(--text-primary);
-  font-size: 4rem;
+  font-size: 4.8rem;
   font-weight: 700;
   text-align: center;
   letter-spacing: -2px;
@@ -652,14 +695,14 @@ body {
 }
 
 .ctrl-trigger-val {
-  font-size: 1.2rem;
+  font-size: 1.35rem;
   color: var(--accent);
   font-weight: 700;
   line-height: 1;
 }
 
 .ctrl-trigger-label {
-  font-size: 0.58rem;
+  font-size: 0.68rem;
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -745,7 +788,7 @@ body {
   border: 1.5px solid var(--border);
   border-radius: var(--radius-md);
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -925,13 +968,41 @@ body {
   box-shadow: inset 0 0 12px rgba(0,0,0,0.2);
 }
 
-/* ── Accent Hint ── */
+/* ── Accent Hint row ── */
+.beat-hint-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+
 .accent-hint {
   font-size: 0.88rem !important;
   color: #ffffff !important;
-  text-align: center;
   letter-spacing: 0.3px;
-  padding: 4px 0 2px;
+  flex: 1;
+  text-align: center;
+}
+
+.btn-flash-toggle {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  background: var(--bg-card-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: opacity 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.btn-flash-toggle.off {
+  color: var(--text-muted);
+  opacity: 0.6;
 }
 
 /* ── Toggles Section ── */
@@ -1132,7 +1203,7 @@ body {
 
 /* Section description text */
 .section-desc {
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   line-height: 1.5;
   margin-bottom: 10px;
@@ -1235,7 +1306,7 @@ body {
   border: 2px solid var(--border);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: 2px;
   cursor: pointer;
@@ -1259,7 +1330,7 @@ body {
   border: none;
   border-radius: var(--radius-md);
   color: #fff;
-  font-size: 1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 3px;
   cursor: pointer;

@@ -19,7 +19,7 @@
     subdivision:         1,       // 1=quarter, 2=eighth, 3=triplet-quarter, 4=sixteenth, 6=triplet-eighth
     timeSigUpper:        4,
     timeSigLower:        4,
-    soundType:           'click',
+    soundType:           'beep',
 
     // Per-beat accent: 'accent' | 'normal' | 'silent'  (array indexed by beat)
     accentPattern:       ['accent', 'normal', 'normal', 'normal'],
@@ -61,6 +61,7 @@
     countInRemaining:    0,
     pendingFlashes:      [],
     rafRunning:          false,
+    flashEnabled:        true,
   };
 
   /* ─────────────────────────────────────────────
@@ -294,6 +295,7 @@
      Playback Control
   ───────────────────────────────────────────── */
   function startPlayback() {
+    if (window.rhythm?.isPlaying()) window.rhythm.stop();
     const ctx = getAudioCtx();
     if (!ctx) return;
     ctx.resume();
@@ -443,17 +445,21 @@
     beatDots.forEach(d => d.classList.remove('active', 'active-accent'));
     const dot = beatDots[dotIndex];
     if (!dot) return;
-    dot.classList.remove('active', 'active-accent');
-    void dot.offsetWidth;
-    dot.classList.add('active');
-    if (isAccent) dot.classList.add('active-accent');
+    if (state.flashEnabled) {
+      dot.classList.remove('active', 'active-accent');
+      void dot.offsetWidth;
+      dot.classList.add('active');
+      if (isAccent) dot.classList.add('active-accent');
+    }
     updateProgressBar((dotIndex + 1) / state.timeSigUpper);
 
-    const flashEl = document.getElementById('screen-flash');
-    if (flashEl) {
-      flashEl.classList.remove('flash-beat', 'flash-accent');
-      void flashEl.offsetWidth;
-      flashEl.classList.add(isAccent ? 'flash-accent' : 'flash-beat');
+    if (state.flashEnabled) {
+      const flashEl = document.getElementById('screen-flash');
+      if (flashEl) {
+        flashEl.classList.remove('flash-beat', 'flash-accent');
+        void flashEl.offsetWidth;
+        flashEl.classList.add(isAccent ? 'flash-accent' : 'flash-beat');
+      }
     }
   }
 
@@ -744,6 +750,7 @@
   const bpmDownBtn       = document.getElementById('bpm-down');
   const playPauseBtn     = document.getElementById('play-pause-btn');
   const tapBtn           = document.getElementById('tap-tempo-btn');
+  const flashToggleBtn   = document.getElementById('flash-toggle');
   const noteGroup        = document.getElementById('note-group');
   const timeSigGroup     = document.getElementById('timesig-group');
   const soundGroup       = document.getElementById('sound-group');
@@ -760,6 +767,13 @@
   ───────────────────────────────────────────── */
   playPauseBtn.addEventListener('click', togglePlayPause);
   tapBtn.addEventListener('click', onTapTempo);
+
+  if (flashToggleBtn) {
+    flashToggleBtn.addEventListener('click', () => {
+      state.flashEnabled = !state.flashEnabled;
+      flashToggleBtn.classList.toggle('off', !state.flashEnabled);
+    });
+  }
 
   bpmSlider.addEventListener('input', () => setBpm(Number(bpmSlider.value)));
   bpmInput.addEventListener('change', () => setBpm(Number(bpmInput.value)));
@@ -1017,10 +1031,16 @@
   document.addEventListener('keydown', e => {
     if (e.target !== document.body && e.target.tagName !== 'BODY') return;
     switch (e.code) {
-      case 'Space':
+      case 'Space': {
         e.preventDefault();
-        togglePlayPause();
+        const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+        if (activeTab === 'rhythm') {
+          document.getElementById('rb-play-btn')?.click();
+        } else {
+          togglePlayPause();
+        }
         break;
+      }
       case 'ArrowUp':
         e.preventDefault();
         setBpm(state.bpm + (e.shiftKey ? 10 : 1));
@@ -1062,10 +1082,136 @@
       document.querySelectorAll('.tab-panel').forEach(p => {
         p.classList.toggle('active', p.id === 'tab-' + tab);
       });
-      // Only stop the metronome tab's playback when switching away from it
+      if (tab === 'metronome' && window.rhythm?.isPlaying()) window.rhythm.stop();
       if (tab !== 'metronome' && state.isPlaying) stopPlayback();
     });
   });
+
+  /* ─────────────────────────────────────────────
+     Settings — Save / Load (localStorage)
+  ───────────────────────────────────────────── */
+  const SETTINGS_KEY = 'metronome-settings';
+
+  function saveSettings() {
+    const data = {
+      bpm:               state.bpm,
+      timeSigUpper:      state.timeSigUpper,
+      timeSigLower:      state.timeSigLower,
+      subdivision:       state.subdivision,
+      sound:             state.soundType,
+      volume:            state.volume,
+      accentFirst:       state.accentFirst,
+      countInEnabled:    state.countInEnabled,
+      flashEnabled:      state.flashEnabled,
+      rampEnabled:       state.rampEnabled,
+      rampStart:         state.rampStartBpm,
+      rampEnd:           state.rampEndBpm,
+      rampMeasures:      state.rampMeasures,
+      barBreakEnabled:   state.barBreakEnabled,
+      barBreakEvery:     state.barBreakEvery,
+      barBreakDuration:  state.barBreakDuration,
+      timerEnabled:      state.timerEnabled,
+      timerDuration:     state.timerDuration,
+      gapMode:           state.gapMode,
+      gapProbability:    state.gapProbability,
+      rhythmPatternIdx:  window.rhythm ? window.rhythm.getPatternIndex() : 0,
+      rhythmVolume:      window.rhythm ? window.rhythm.getVolume() : 0.8,
+      activeTab:         document.querySelector('.tab-btn.active')?.dataset.tab || 'metronome',
+    };
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(data)); } catch (_) {}
+    // Toast
+    const toast = document.getElementById('save-toast');
+    if (toast) {
+      toast.style.display = 'block';
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => { toast.style.display = 'none'; }, 1500);
+    }
+  }
+
+  function loadSettings() {
+    let data;
+    try { data = JSON.parse(localStorage.getItem(SETTINGS_KEY)); } catch (_) {}
+    if (!data) return;
+
+    // BPM
+    if (data.bpm) setBpm(data.bpm);
+
+    // Time signature
+    if (data.timeSigUpper && data.timeSigLower) {
+      const tsBtn = document.querySelector(`[data-upper="${data.timeSigUpper}"][data-lower="${data.timeSigLower}"]`);
+      if (tsBtn) tsBtn.click();
+    }
+
+    // Subdivision
+    if (data.subdivision) {
+      const subBtn = document.querySelector(`[data-note="${data.subdivision}"]`);
+      if (subBtn) subBtn.click();
+    }
+
+    // Sound
+    if (data.sound) {
+      const sndBtn = document.querySelector(`[data-sound="${data.sound}"]`);
+      if (sndBtn) sndBtn.click();
+    }
+
+    // Flash
+    if (data.flashEnabled === false) {
+      state.flashEnabled = false;
+      document.getElementById('flash-toggle')?.classList.add('off');
+    }
+
+    // Count-in
+    if (data.countInEnabled === false && state.countInEnabled) {
+      document.getElementById('count-in-pill')?.click();
+    }
+
+    // Ramp
+    if (data.rampEnabled) {
+      document.getElementById('ramp-pill')?.click();
+      if (data.rampStart)   { state.rampStartBpm = data.rampStart;   if (rampStartInput) rampStartInput.value = data.rampStart; }
+      if (data.rampEnd)     { state.rampEndBpm   = data.rampEnd;     if (rampEndInput)   rampEndInput.value   = data.rampEnd;   }
+      if (data.rampMeasures){ state.rampMeasures = data.rampMeasures; if (rampMeasuresIn) rampMeasuresIn.value = data.rampMeasures; }
+    }
+
+    // Gap mode
+    if (data.gapMode) {
+      document.getElementById('gap-pill')?.click();
+      if (data.gapProbability != null) {
+        state.gapProbability = data.gapProbability;
+        const sl = document.getElementById('gap-density');
+        if (sl) { sl.value = Math.round(data.gapProbability * 100); sl.dispatchEvent(new Event('input')); }
+      }
+    }
+
+    // Bar break
+    if (data.barBreakEnabled) {
+      document.getElementById('bar-break-pill')?.click();
+    }
+
+    // Timer
+    if (data.timerEnabled) {
+      document.getElementById('timer-pill')?.click();
+      if (data.timerDuration) {
+        state.timerDuration = data.timerDuration;
+        const sel = document.getElementById('timer-duration');
+        if (sel) sel.value = data.timerDuration;
+      }
+    }
+
+    // Rhythm (after rhythm.js runs)
+    if (window.rhythm) {
+      if (data.rhythmPatternIdx > 0) window.rhythm.setPatternIndex(data.rhythmPatternIdx);
+      if (data.rhythmVolume != null) window.rhythm.setVolume(data.rhythmVolume);
+    }
+
+    // Active tab
+    if (data.activeTab && data.activeTab !== 'metronome') {
+      document.querySelector(`.tab-btn[data-tab="${data.activeTab}"]`)?.click();
+    }
+  }
+
+  const saveBtn = document.getElementById('save-btn');
+  if (saveBtn) saveBtn.addEventListener('click', saveSettings);
 
   /* ─────────────────────────────────────────────
      Init
@@ -1076,10 +1222,11 @@
   // Expose public API for rhythm.js
   window.getSharedAudioCtx = getAudioCtx;
   window.metronome = {
-    setBpm:     setBpm,
-    tap:        onTapTempo,
-    getBpm:     () => state.bpm,
-    isPlaying:  () => state.isPlaying,
+    setBpm:       setBpm,
+    tap:          onTapTempo,
+    getBpm:       () => state.bpm,
+    isPlaying:    () => state.isPlaying,
+    loadSettings: loadSettings,
   };
 
 })();

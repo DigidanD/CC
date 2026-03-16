@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Metronome</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231a1a2e'/><text x='16' y='24' font-size='22' text-anchor='middle' fill='%23e88200'>♩</text></svg>">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -20,9 +21,13 @@
     <!-- Header -->
     <header class="app-header">
       <h1 class="app-title">&#9833; METRONOME</h1>
-      <div class="header-timer" id="header-timer-wrap" style="display:none">
-        <span id="timer-display" class="timer-time">--:--</span>
-        <span class="timer-label">remaining</span>
+      <div class="header-right">
+        <div class="header-timer" id="header-timer-wrap" style="display:none">
+          <span id="timer-display" class="timer-time">--:--</span>
+          <span class="timer-label">remaining</span>
+        </div>
+        <button class="btn-save" id="save-btn" title="Save all settings">&#128190; Save</button>
+        <div class="save-toast" id="save-toast" style="display:none">Saved ✓</div>
       </div>
     </header>
 
@@ -43,7 +48,10 @@
         <div class="bar-progress-track">
           <div class="bar-progress-fill" id="bar-progress-fill"></div>
         </div>
-        <div class="accent-hint">Tap a beat dot to cycle: normal &#8594; accent &#8594; silent</div>
+        <div class="beat-hint-row">
+          <div class="accent-hint">Tap a beat dot to cycle: normal &#8594; accent &#8594; silent</div>
+          <button class="btn-flash-toggle" id="flash-toggle" title="Toggle beat flash">&#9889; Flash</button>
+        </div>
         <div class="count-in-display" id="count-in-display">
           <div class="count-in-num" id="count-in-num"></div>
         </div>
@@ -133,14 +141,14 @@
         <!-- Sound -->
         <div class="ctrl-sel" id="sound-sel">
           <button class="ctrl-trigger" id="sound-trigger" aria-haspopup="listbox">
-            <span class="ctrl-trigger-val" id="sound-val">Click</span>
+            <span class="ctrl-trigger-val" id="sound-val">Beep</span>
             <span class="ctrl-trigger-label">SOUND</span>
             <span class="ctrl-trigger-arrow"></span>
           </button>
           <div class="ctrl-sel-panel" id="sound-group" role="listbox" aria-label="Sound type">
-            <button class="ctrl-opt active" data-sound="click"   role="option">Click</button>
+            <button class="ctrl-opt"        data-sound="click"   role="option">Clap</button>
             <button class="ctrl-opt"        data-sound="wood"    role="option">Wood</button>
-            <button class="ctrl-opt"        data-sound="beep"    role="option">Beep</button>
+            <button class="ctrl-opt active" data-sound="beep"    role="option">Beep</button>
             <button class="ctrl-opt"        data-sound="hihat"   role="option">Hi-Hat</button>
             <button class="ctrl-opt"        data-sound="rim"     role="option">Rim</button>
             <button class="ctrl-opt"        data-sound="cowbell" role="option">Cowbell</button>

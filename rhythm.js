@@ -330,7 +330,7 @@
     const gain = ctx.createGain();
     osc.frequency.setValueAtTime(185, time);
     osc.frequency.exponentialRampToValueAtTime(38, time + 0.15);
-    gain.gain.setValueAtTime(vol * 1.15, time);
+    gain.gain.setValueAtTime(vol * 0.72, time);
     gain.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
     osc.connect(gain); gain.connect(ctx.destination);
     osc.start(time); osc.stop(time + 0.36);
@@ -343,7 +343,7 @@
     bpf.frequency.value = 3500 + Math.random() * 1200;
     bpf.Q.value = 0.5;
     const cGain = ctx.createGain();
-    cGain.gain.setValueAtTime(vol * 0.85, time);
+    cGain.gain.setValueAtTime(vol * 0.5, time);
     cGain.gain.exponentialRampToValueAtTime(0.001, time + 0.013);
     click.connect(bpf); bpf.connect(cGain); cGain.connect(ctx.destination);
     click.start(time); click.stop(time + 0.016);
@@ -1069,5 +1069,33 @@
   buildVisualizer();
   rb.bpm = Number(document.getElementById('bpm-input').value) || 120;
   updateRbBpmBadge(rb.bpm);
+
+  // Load persisted settings now that both modules are initialized
+  if (window.metronome?.loadSettings) window.metronome.loadSettings();
+
+  // Public API for cross-module access
+  window.rhythm = {
+    isPlaying:       () => rb.isPlaying,
+    stop:            stopRhythm,
+    getPatternIndex: () => PATTERNS.indexOf(rb.pattern),
+    setPatternIndex: (i) => {
+      const p = PATTERNS[i];
+      if (!p) return;
+      rb.pattern = p;
+      buildVisualizer();
+    },
+    getBpm:    () => rb.bpm,
+    getVolume: () => rb.volume,
+    setVolume: (v) => {
+      rb.volume = v;
+      const slider = document.getElementById('rb-volume');
+      if (slider) {
+        slider.value = Math.round(v * 100);
+        slider.style.setProperty('--slider-pct', Math.round(v * 100) + '%');
+        const lbl = document.getElementById('rb-volume-label');
+        if (lbl) lbl.textContent = Math.round(v * 100) + '%';
+      }
+    },
+  };
 
 })();
