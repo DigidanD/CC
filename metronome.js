@@ -259,7 +259,7 @@
   function scheduleNote(beatIndex, time) {
     const totalSubs   = state.timeSigUpper * state.subdivision;
     const beatNum     = Math.floor(beatIndex / state.subdivision);
-    const accentState = state.accentPattern[beatNum] || 'normal';
+    const accentState = (state.accentPreset === 'off') ? 'normal' : (state.accentPattern[beatNum] || 'normal');
     const isAccent    = accentState === 'accent';
     const isSilent    = accentState === 'silent';
 
@@ -415,10 +415,6 @@
       state.accentPattern.push('normal');
     }
     state.accentPattern.length = state.timeSigUpper;
-    // Default: at least beat 0 is accented (unless user explicitly chose "off")
-    if (state.accentPreset !== 'off' && state.accentPattern.every(v => v !== 'accent')) {
-      state.accentPattern[0] = 'accent';
-    }
 
     for (let i = 0; i < state.timeSigUpper; i++) {
       const dot = document.createElement('div');
