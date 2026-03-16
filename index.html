@@ -21,13 +21,9 @@
     <!-- Header -->
     <header class="app-header">
       <h1 class="app-title">&#9833; METRONOME</h1>
-      <div class="header-right">
-        <div class="header-timer" id="header-timer-wrap" style="display:none">
-          <span id="timer-display" class="timer-time">--:--</span>
-          <span class="timer-label">remaining</span>
-        </div>
-        <button class="btn-save" id="save-btn" title="Save all settings">&#128190; Save</button>
-        <div class="save-toast" id="save-toast" style="display:none">Saved ✓</div>
+      <div class="header-timer" id="header-timer-wrap" style="display:none">
+        <span id="timer-display" class="timer-time">--:--</span>
+        <span class="timer-label">remaining</span>
       </div>
     </header>
 
@@ -48,10 +44,12 @@
         <div class="bar-progress-track">
           <div class="bar-progress-fill" id="bar-progress-fill"></div>
         </div>
-        <div class="beat-hint-row">
-          <div class="accent-hint">Tap a beat dot to cycle: normal &#8594; accent &#8594; silent</div>
-          <button class="btn-flash-toggle" id="flash-toggle" title="Toggle beat flash">&#9889; Flash</button>
+        <div class="accent-hint">Tap a beat dot to cycle: normal &#8594; accent &#8594; silent</div>
+        <div class="beat-util-row">
+          <button class="btn-save" id="save-btn" title="Save all settings">&#128190; Save Preset</button>
+          <button class="btn-flash-toggle" id="flash-toggle" title="Toggle screen flash">&#9889; Screen Flash</button>
         </div>
+        <div class="save-toast" id="save-toast" style="display:none">Saved &#10003;</div>
         <div class="count-in-display" id="count-in-display">
           <div class="count-in-num" id="count-in-num"></div>
         </div>
