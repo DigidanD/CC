@@ -415,8 +415,8 @@
       state.accentPattern.push('normal');
     }
     state.accentPattern.length = state.timeSigUpper;
-    // Default: at least beat 0 is accented
-    if (state.accentPattern.every(v => v !== 'accent')) {
+    // Default: at least beat 0 is accented (unless user explicitly chose "off")
+    if (state.accentPreset !== 'off' && state.accentPattern.every(v => v !== 'accent')) {
       state.accentPattern[0] = 'accent';
     }
 
