@@ -284,23 +284,14 @@
     if (active) { stopTuner(); return; }
 
     try {
-      dbg('starting — getting audio context…');
-
       audioCtx = window.getSharedAudioCtx
         ? window.getSharedAudioCtx()
         : new (window.AudioContext || window.webkitAudioContext)();
 
-      dbg('audioCtx state: ' + audioCtx.state);
-
       if (audioCtx.state === 'suspended') {
         await audioCtx.resume();
-        dbg('audioCtx resumed → ' + audioCtx.state);
-      }
-      if (audioCtx.state !== 'running') {
-        dbg('ERROR: audioCtx not running after resume: ' + audioCtx.state);
       }
 
-      dbg('requesting microphone…');
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation:  false,
@@ -310,10 +301,6 @@
         video: false,
       });
 
-      const tracks = micStream.getAudioTracks();
-      dbg('mic granted — tracks: ' + tracks.length +
-          (tracks[0] ? '  label="' + tracks[0].label + '"' : ''));
-
       const source = audioCtx.createMediaStreamSource(micStream);
       analyser = audioCtx.createAnalyser();
       analyser.fftSize               = FFT_SIZE;
@@ -322,17 +309,9 @@
 
       pcmBuf = new Float32Array(FFT_SIZE);
 
-      // Warm-up: read one frame to check mic is providing data
-      await new Promise(r => setTimeout(r, 100));
-      analyser.getFloatTimeDomainData(pcmBuf);
-      let maxAmp = 0;
-      for (let i = 0; i < pcmBuf.length; i++) if (Math.abs(pcmBuf[i]) > maxAmp) maxAmp = Math.abs(pcmBuf[i]);
-      dbg('warm-up frame max amplitude: ' + maxAmp.toFixed(4) + ' (threshold=' + AMP_THRESH + ')');
-
       if (holdTimer !== null) { clearTimeout(holdTimer); holdTimer = null; }
       active             = true;
       frameCount         = 0;
-      yinFrameCount      = 0;
       centsWindow.length = 0;
       attackTime         = 0;
       isLocked           = false;
@@ -347,11 +326,9 @@
       startBtn.textContent = 'Stop Tuner';
       startBtn.classList.add('running');
 
-      dbg('RAF started — play a note!');
       rafId = requestAnimationFrame(rafLoop);
     } catch (err) {
       console.error('[Tuner] startTuner error:', err);
-      dbg('ERROR: ' + err.message);
       alert('Could not start tuner:\n' + err.message);
     }
   }
