@@ -31,6 +31,7 @@
     <nav class="tab-nav" role="tablist">
       <button class="tab-btn active" data-tab="metronome" role="tab">Metronome</button>
       <button class="tab-btn" data-tab="rhythm" role="tab">Rhythm Buddy</button>
+      <button class="tab-btn" data-tab="tuner" role="tab">Tuner</button>
     </nav>
 
     <!-- ══════════════════════════════
@@ -340,9 +341,49 @@
 
     </div><!-- /#tab-rhythm -->
 
+    <!-- ══════════════════════════════
+         TUNER TAB
+    ══════════════════════════════ -->
+    <div id="tab-tuner" class="tab-panel">
+
+      <div class="tuner-card">
+
+        <!-- Note + frequency display -->
+        <div class="tuner-display" id="tuner-display">
+          <div class="tuner-note-row">
+            <span class="tuner-note" id="tuner-note">—</span><span class="tuner-octave" id="tuner-octave"></span>
+          </div>
+          <div class="tuner-freq" id="tuner-freq">— Hz</div>
+        </div>
+
+        <!-- Gauge -->
+        <div class="tuner-gauge-wrap">
+          <div class="tuner-ticks" aria-hidden="true">
+            <span>−50</span><span>−25</span><span>0</span><span>+25</span><span>+50</span>
+          </div>
+          <div class="tuner-gauge" id="tuner-gauge">
+            <div class="tuner-gauge-track"></div>
+            <div class="tuner-needle" id="tuner-needle"></div>
+          </div>
+          <div class="tuner-cents" id="tuner-cents">— ¢</div>
+        </div>
+
+        <!-- Lock indicator -->
+        <div class="tuner-lock" id="tuner-lock" aria-live="polite">
+          <span class="tuner-lock-dot"></span>
+          <span>IN TUNE</span>
+        </div>
+
+      </div><!-- /.tuner-card -->
+
+      <button class="tuner-btn" id="tuner-start-btn">Start Tuner</button>
+
+    </div><!-- /#tab-tuner -->
+
   </div><!-- /.app -->
 
   <script src="metronome.js"></script>
   <script src="rhythm.js"></script>
+  <script src="tuner.js"></script>
 </body>
 </html>
