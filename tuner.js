@@ -12,8 +12,8 @@
   const CONFIDENCE  = 0.85;  // minimum YIN confidence
   const YIN_THRESH  = 0.15;  // YIN cumulative-mean threshold
   const MEDIAN_N    = 9;     // median-filter window size
-  const LOCK_CENTS  = 10;    // ±units on 0-100 scale (~±10¢) = green zone
-  const LOCK_FRAMES = 12;    // frames at 60fps ≈ 200ms to confirm lock
+  const LOCK_CENTS  = 2;     // ±2¢ — only truly in-tune position goes green
+  const LOCK_FRAMES = 8;     // ~133ms at 60fps to confirm stable ±2¢
   const FFT_SIZE    = 4096;  // analyser fftSize → time-domain buffer length
 
   /* ─────────────────────────────────────────────
@@ -39,6 +39,11 @@
   let lockCount     = 0;
   let isLocked      = false;
   let lastDet       = null;  // last FreqToNote result, or null
+
+  // Display hold — keeps note + needle visible for up to 5s after silence
+  let displayedDet  = null;  // what is currently rendered (may outlive lastDet)
+  let holdTimer     = null;  // setTimeout id for the 5s display hold
+  let frozenLocked  = false; // lock state captured at silence onset, held during hold
 
   /* ─────────────────────────────────────────────
      DOM refs
@@ -178,38 +183,60 @@
                && res.freq >= MIN_FREQ
                && res.freq <= MAX_FREQ) {
         lastDet = freqToNote(medianFreq(res.freq));
+
+        // New active detection — cancel any hold timer and update display
+        if (holdTimer !== null) { clearTimeout(holdTimer); holdTimer = null; }
+        frozenLocked  = false;
+        displayedDet  = lastDet;
+        updateUI(displayedDet);
       } else {
         lastDet = null;
         freqHistory.length = 0;   // reset median on silence / low confidence
-      }
 
-      updateUI(lastDet);
+        // Silence — start 5s hold timer if not already running
+        if (displayedDet !== null && holdTimer === null) {
+          frozenLocked = isLocked;
+          holdTimer = setTimeout(() => {
+            displayedDet = null;
+            frozenLocked = false;
+            holdTimer    = null;
+            lockCount    = 0;
+            updateUI(null);
+          }, 5000);
+        }
+      }
     }
 
     // Spring physics runs every frame for smooth needle movement
-    nTarget = lastDet
-      ? 50 + Math.max(-50, Math.min(50, lastDet.cents))
+    // Use displayedDet (not lastDet) so needle holds position during the 5s hold
+    nTarget = displayedDet
+      ? 50 + Math.max(-50, Math.min(50, displayedDet.cents))
       : 50;
     stepSpring(dt);
     needleEl.style.left = nPos.toFixed(2) + '%';
     centsEl.style.left  = nPos.toFixed(2) + '%';
 
-    // Lock accumulator — based on smoothed needle position every frame.
-    // This means: if the needle *looks* in the green zone → light up green.
+    // Lock accumulator — based on smoothed needle position, active signal only.
+    // During the 5s display hold, lock counter freezes (frozenLocked preserves state).
     const wasLocked = isLocked;
     if (lastDet && Math.abs(nPos - 50) <= LOCK_CENTS) {
       lockCount = Math.min(lockCount + 1, LOCK_FRAMES + 4);
+    } else if (lastDet === null && holdTimer !== null) {
+      // Hold period: don't decay — keep last lock state until hold expires
     } else {
       lockCount = Math.max(0, lockCount - 1);
     }
     isLocked = lockCount >= LOCK_FRAMES;
 
+    // Visual lock state: live lock OR frozen lock from hold period
+    const showLocked = isLocked || frozenLocked;
+
     // Update lock visuals every frame (responsive to needle position)
-    lockEl.classList.toggle('visible', isLocked);
-    gaugeEl.classList.toggle('locked', isLocked);
-    displayEl.classList.toggle('locked', isLocked);
-    centsEl.classList.toggle('locked', isLocked);
-    needleEl.classList.toggle('locked', isLocked);
+    lockEl.classList.toggle('visible', showLocked);
+    gaugeEl.classList.toggle('locked', showLocked);
+    displayEl.classList.toggle('locked', showLocked);
+    centsEl.classList.toggle('locked', showLocked);
+    needleEl.classList.toggle('locked', showLocked);
 
     // Play ding exactly once on lock entry
     if (isLocked && !wasLocked) playLockSound();
@@ -300,6 +327,9 @@
     lockCount  = 0;
     isLocked   = false;
     lastDet    = null;
+    if (holdTimer !== null) { clearTimeout(holdTimer); holdTimer = null; }
+    displayedDet = null;
+    frozenLocked = false;
     freqHistory.length = 0;
     nPos = 50; nVel = 0; smoothedTarget = 50;
     needleEl.style.left = '50%';

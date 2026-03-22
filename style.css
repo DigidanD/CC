@@ -1739,6 +1739,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0;
+  min-width: 8rem;   /* prevents layout jitter when note name width changes */
 }
 
 .tuner-note {
@@ -1747,7 +1748,7 @@ body {
   line-height: 1;
   letter-spacing: -3px;
   color: var(--text-primary);
-  min-width: 1ch;
+  min-width: 2ch;
   text-align: center;
   transition: color 0.3s;
   font-variant-numeric: tabular-nums;
