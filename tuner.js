@@ -333,14 +333,17 @@
 
       pcmBuf = new Float32Array(FFT_SIZE);
 
+      if (holdTimer !== null) { clearTimeout(holdTimer); holdTimer = null; }
       active             = true;
       frameCount         = 0;
       centsWindow.length = 0;
       attackTime         = 0;
       isLocked           = false;
       lastDet            = null;
-      nPos           = 50;
-      nVel           = 0;
+      displayedDet       = null;
+      frozenLocked       = false;
+      nPos               = 50;
+      nVel               = 0;
       freqHistory.length = 0;
       lastTs = performance.now();
 
@@ -363,7 +366,6 @@
     startBtn.textContent = 'Start Tuner';
     startBtn.classList.remove('running');
 
-    lockCount  = 0;
     isLocked   = false;
     lastDet    = null;
     if (holdTimer !== null) { clearTimeout(holdTimer); holdTimer = null; }
