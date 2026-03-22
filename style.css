@@ -1863,12 +1863,17 @@ body {
 /* Scale labels below track */
 .tuner-scale {
   display: flex;
-  justify-content: space-between;
-  padding: 8px 2px 0;
+  padding: 8px 0 0;
   font-size: 0.62rem;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
+.tuner-scale span {
+  flex: 1;
+  text-align: center;
+}
+.tuner-scale span:first-child { text-align: left; }
+.tuner-scale span:last-child  { text-align: right; }
 
 /* Locked visual state */
 .tuner-gauge.locked .tuner-track {

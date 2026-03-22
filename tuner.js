@@ -72,20 +72,20 @@
       d[tau] = rSum > 0 ? (diff * tau) / rSum : 0;
     }
 
-    // Step 3: absolute threshold — first local minimum below YIN_THRESH
-    let tau = -1;
-    for (let t = 2; t < W; t++) {
-      if (d[t] < YIN_THRESH) {
-        while (t + 1 < W && d[t + 1] < d[t]) t++;
-        tau = t;
-        break;
-      }
+    // Step 3: global minimum of d' within the musically valid frequency range.
+    // "First minimum + descent" is avoided because the descent can overshoot the
+    // true fundamental's valley and land on a false minimum one whole-tone away.
+    const tauMin = Math.max(2, Math.floor(sampleRate / MAX_FREQ));
+    const tauMax = Math.min(W - 1, Math.floor(sampleRate / MIN_FREQ));
+    let tau = tauMin;
+    for (let t = tauMin + 1; t <= tauMax; t++) {
+      if (d[t] < d[tau]) tau = t;
     }
-    if (tau === -1) return null;
+    if (d[tau] >= YIN_THRESH) return null;
 
     // Step 4: parabolic interpolation
-    const x0 = tau > 0     ? tau - 1 : tau;
-    const x2 = tau + 1 < W ? tau + 1 : tau;
+    const x0 = tau > tauMin ? tau - 1 : tau;
+    const x2 = tau < tauMax ? tau + 1 : tau;
     let fine;
     if (x0 === tau) {
       fine = d[tau] <= d[x2] ? tau : x2;
@@ -125,13 +125,10 @@
   /* ─────────────────────────────────────────────
      Spring Physics (needle lerp)
   ───────────────────────────────────────────── */
-  const SPRING  = 14;
-  const DAMPING = 0.72;
-
   function stepSpring(dt) {
-    const force = SPRING * (nTarget - nPos) - DAMPING * nVel;
-    nVel += force * dt;
-    nPos += nVel * dt;
+    // Exponential lerp — critically overdamped, zero oscillation.
+    // Previous spring (k=14, c=0.72) had damping ratio ζ≈0.1 → heavily oscillating.
+    nPos += (nTarget - nPos) * (1 - Math.exp(-dt * 10));
     nPos  = Math.max(0, Math.min(100, nPos));
   }
 
