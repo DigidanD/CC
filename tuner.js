@@ -17,7 +17,7 @@
   const AMP_THRESH  = 0.02;  // RMS amplitude floor — below this = silence, freeze UI
   const LOCK_CENTS   = 2;    // ±2¢ — only truly in-tune position goes green
   const TRANSIENT_MS = 180;  // ms to ignore after note onset (attack harmonics settle)
-  const STABILITY_N  = 8;    // all 8 consecutive ±2¢ readings (~400ms) required for green
+  const STABILITY_N  = 4;    // all 4 consecutive ±2¢ readings (~200ms) required for green
   const FFT_SIZE     = 4096; // analyser fftSize → time-domain buffer length
 
   /* ─────────────────────────────────────────────
