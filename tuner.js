@@ -45,9 +45,10 @@
   let lastDet       = null;  // last FreqToNote result, or null
 
   // Display hold — keeps note + needle visible for up to 5s after silence
-  let displayedDet  = null;  // what is currently rendered (may outlive lastDet)
-  let holdTimer     = null;  // setTimeout id for the 5s display hold
-  let frozenLocked  = false; // lock state captured at silence onset, held during hold
+  let displayedDet    = null;  // what is currently rendered (may outlive lastDet)
+  let holdTimer       = null;  // setTimeout id for the 5s display hold
+  let frozenLocked    = false; // lock state captured at silence onset, held during hold
+  let lastInTuneBeep  = 0;     // performance.now() of last in-tune beep; 2s cooldown
 
   /* ─────────────────────────────────────────────
      DOM refs
@@ -185,16 +186,21 @@
   ───────────────────────────────────────────── */
   function playLockSound() {
     if (!audioCtx) return;
+    // 2-second cooldown: same note may not re-beep within 2s
+    const now = performance.now();
+    if (now - lastInTuneBeep < 2000) return;
+    lastInTuneBeep = now;
+
     const osc  = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.connect(gain);
     gain.connect(audioCtx.destination);
     osc.type = 'sine';
-    osc.frequency.value = 880;          // A5 — clear, pleasant ding
-    gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+    osc.frequency.value = 1046.5;       // C6 — bright, short confirmation tone
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
     osc.start(audioCtx.currentTime);
-    osc.stop(audioCtx.currentTime + 0.3);
+    osc.stop(audioCtx.currentTime + 0.08);
   }
 
   /* ─────────────────────────────────────────────
@@ -360,8 +366,9 @@
     isLocked   = false;
     lastDet    = null;
     if (holdTimer !== null) { clearTimeout(holdTimer); holdTimer = null; }
-    displayedDet = null;
-    frozenLocked = false;
+    displayedDet   = null;
+    frozenLocked   = false;
+    lastInTuneBeep = 0;
     freqHistory.length = 0;
     nPos = 50; nVel = 0; smoothedTarget = 50;
     needleEl.style.left = '50%';
