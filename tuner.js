@@ -13,7 +13,7 @@
   const YIN_THRESH  = 0.15;  // YIN cumulative-mean threshold
   const MEDIAN_N    = 9;     // median-filter window size
   const LOCK_CENTS  = 2;     // ±2¢ — only truly in-tune position goes green
-  const LOCK_FRAMES = 8;     // ~133ms at 60fps to confirm stable ±2¢
+  const LOCK_FRAMES = 5;     // 5 YIN frames × ~50ms = 250ms to confirm ±2¢
   const FFT_SIZE    = 4096;  // analyser fftSize → time-domain buffer length
 
   /* ─────────────────────────────────────────────
@@ -62,7 +62,7 @@
     // Reject silence
     let rms = 0;
     for (let i = 0; i < N; i++) rms += signal[i] * signal[i];
-    if (rms / N < 1e-4) return null;
+    if (rms / N < 5e-4) return null;  // raised: reject fan noise / room hum
 
     // Steps 1 + 2: difference function + cumulative mean normalisation
     const d = new Float32Array(W);
@@ -93,9 +93,11 @@
     if (tau === -1) return null;
 
     // Sub-harmonic check — prevents octave-up errors on D3/G3/B3.
-    // If the detected τ is actually the 2nd harmonic (period = τ/2 of fundamental),
-    // there will be an equally valid dip at ~2×τ (the true fundamental period).
-    // Scan [1.85×τ … 2.15×τ]; if a dip exists below threshold there, prefer it.
+    // For any clean periodic signal, d[2τ] is ALWAYS below threshold (it is a
+    // valid period multiple), so checking `d[2τ] < threshold` alone would push
+    // every string one octave down. We only switch when the sub-harmonic dip is
+    // MEANINGFULLY deeper than the detected dip (≥25% lower d value), which only
+    // happens when τ really is a harmonic, not the true fundamental.
     const sh2lo = Math.round(tau * 1.85);
     const sh2hi = Math.min(tauMax, Math.round(tau * 2.15));
     if (sh2lo <= tauMax) {
@@ -103,8 +105,8 @@
       for (let t = sh2lo + 1; t <= sh2hi; t++) {
         if (d[t] < d[tBest]) tBest = t;
       }
-      if (d[tBest] < YIN_THRESH) {
-        // Descend to local minimum in the sub-harmonic region
+      if (d[tBest] < YIN_THRESH && d[tBest] < d[tau] * 0.75) {
+        // Sub-harmonic is substantially better — descend to its local minimum
         while (tBest + 1 <= tauMax && d[tBest + 1] < d[tBest]) tBest++;
         tau = tBest;
       }
@@ -154,10 +156,10 @@
   ───────────────────────────────────────────── */
   function stepSpring(dt) {
     // Two-stage smoothing:
-    // Stage 1 — low-pass filter on nTarget (τ≈400ms) removes frame-to-frame jitter
-    smoothedTarget += (nTarget - smoothedTarget) * (1 - Math.exp(-dt * 2.5));
-    // Stage 2 — needle follows smoothed target (τ≈285ms), slow and stable
-    nPos += (smoothedTarget - nPos) * (1 - Math.exp(-dt * 3.5));
+    // Stage 1 — low-pass filter on nTarget (τ≈333ms) removes frame-to-frame jitter
+    smoothedTarget += (nTarget - smoothedTarget) * (1 - Math.exp(-dt * 3));
+    // Stage 2 — needle follows smoothed target (τ≈250ms), stable but visible
+    nPos += (smoothedTarget - nPos) * (1 - Math.exp(-dt * 4));
     nPos  = Math.max(0, Math.min(100, nPos));
   }
 
@@ -201,12 +203,26 @@
 
         // New active detection — cancel any hold timer and update display
         if (holdTimer !== null) { clearTimeout(holdTimer); holdTimer = null; }
-        frozenLocked  = false;
-        displayedDet  = lastDet;
+        frozenLocked = false;
+        displayedDet = lastDet;
         updateUI(displayedDet);
+
+        // Lock accumulator — based on accurate pitch cents (not spring position).
+        // Runs at YIN rate (~20fps / 50ms per frame) for fast, accurate response.
+        const wasLocked = isLocked;
+        if (Math.abs(lastDet.cents) <= LOCK_CENTS) {
+          lockCount = Math.min(lockCount + 1, LOCK_FRAMES + 4);
+        } else {
+          lockCount = Math.max(0, lockCount - 2);  // fast exit when out of tune
+        }
+        isLocked = lockCount >= LOCK_FRAMES;
+        if (isLocked && !wasLocked) playLockSound();
+
       } else {
         lastDet = null;
         freqHistory.length = 0;   // reset median on silence / low confidence
+        lockCount = Math.max(0, lockCount - 1);  // gradual release on silence
+        isLocked  = lockCount >= LOCK_FRAMES;
 
         // Silence — start 5s hold timer if not already running
         if (displayedDet !== null && holdTimer === null) {
@@ -231,30 +247,13 @@
     needleEl.style.left = nPos.toFixed(2) + '%';
     centsEl.style.left  = nPos.toFixed(2) + '%';
 
-    // Lock accumulator — based on smoothed needle position, active signal only.
-    // During the 5s display hold, lock counter freezes (frozenLocked preserves state).
-    const wasLocked = isLocked;
-    if (lastDet && Math.abs(nPos - 50) <= LOCK_CENTS) {
-      lockCount = Math.min(lockCount + 1, LOCK_FRAMES + 4);
-    } else if (lastDet === null && holdTimer !== null) {
-      // Hold period: don't decay — keep last lock state until hold expires
-    } else {
-      lockCount = Math.max(0, lockCount - 1);
-    }
-    isLocked = lockCount >= LOCK_FRAMES;
-
     // Visual lock state: live lock OR frozen lock from hold period
     const showLocked = isLocked || frozenLocked;
-
-    // Update lock visuals every frame (responsive to needle position)
     lockEl.classList.toggle('visible', showLocked);
     gaugeEl.classList.toggle('locked', showLocked);
     displayEl.classList.toggle('locked', showLocked);
     centsEl.classList.toggle('locked', showLocked);
     needleEl.classList.toggle('locked', showLocked);
-
-    // Play ding exactly once on lock entry
-    if (isLocked && !wasLocked) playLockSound();
   }
 
   /* ─────────────────────────────────────────────
