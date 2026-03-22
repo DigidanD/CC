@@ -33,7 +33,6 @@
   let nPos           = 50;   // current position 0–100 (50 = centre = 0 ¢)
   let nVel           = 0;
   let nTarget        = 50;
-  let smoothedTarget = 50;   // low-pass filtered target, prevents frame jitter
   let lastTs         = 0;
 
   // Smoothing & lock state
@@ -169,16 +168,10 @@
      Spring Physics (needle lerp)
   ───────────────────────────────────────────── */
   function stepSpring(dt, hasSignal) {
-    if (hasSignal) {
-      // Normal tracking: τ₁≈333ms, τ₂≈250ms — follows pitch without chasing noise
-      smoothedTarget += (nTarget - smoothedTarget) * (1 - Math.exp(-dt * 3));
-      nPos           += (smoothedTarget - nPos)    * (1 - Math.exp(-dt * 4));
-    } else {
-      // Silence: very slow drift back to centre — τ₁≈1s, τ₂≈667ms
-      smoothedTarget += (nTarget - smoothedTarget) * (1 - Math.exp(-dt * 1));
-      nPos           += (smoothedTarget - nPos)    * (1 - Math.exp(-dt * 1.5));
-    }
-    nPos = Math.max(0, Math.min(100, nPos));
+    const target = hasSignal ? nTarget : 50;
+    const alpha  = hasSignal ? 0.15 : 0.04;  // 0.15 → weighted physical-tuner feel
+    nPos += (target - nPos) * alpha;
+    nPos  = Math.max(0, Math.min(100, nPos));
   }
 
   /* ─────────────────────────────────────────────
@@ -339,7 +332,6 @@
       lastDet    = null;
       nPos           = 50;
       nVel           = 0;
-      smoothedTarget = 50;
       freqHistory.length = 0;
       lastTs = performance.now();
 
@@ -370,7 +362,7 @@
     frozenLocked   = false;
     lastInTuneBeep = 0;
     freqHistory.length = 0;
-    nPos = 50; nVel = 0; smoothedTarget = 50;
+    nPos = 50; nVel = 0;
     needleEl.style.left = '50%';
     updateUI(null);
     lockEl.classList.remove('visible');
