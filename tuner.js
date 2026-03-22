@@ -7,7 +7,9 @@
   const NOTE_NAMES  = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
   const A4_FREQ     = 440;
   const A4_MIDI     = 69;
-  const MIN_FREQ    = 50;    // Hz — below this is noise
+  const MIN_FREQ    = 65;    // Hz — E2=82Hz is lowest guitar string; 65 caps tauMax
+                             //       at 678 so A2(τ≈401) sub-harmonic check cannot
+                             //       reach A1(τ≈802), preventing octave-down errors.
   const MAX_FREQ    = 2000;  // Hz — above this rarely needed
   const CONFIDENCE  = 0.85;  // minimum YIN confidence
   const YIN_THRESH  = 0.15;  // YIN cumulative-mean threshold
@@ -105,7 +107,7 @@
       for (let t = sh2lo + 1; t <= sh2hi; t++) {
         if (d[t] < d[tBest]) tBest = t;
       }
-      if (d[tBest] < YIN_THRESH && d[tBest] < d[tau] * 0.75) {
+      if (d[tBest] < YIN_THRESH && d[tBest] < d[tau] * 0.6) {
         // Sub-harmonic is substantially better — descend to its local minimum
         while (tBest + 1 <= tauMax && d[tBest + 1] < d[tBest]) tBest++;
         tau = tBest;
@@ -133,6 +135,14 @@
      Median Filter
   ───────────────────────────────────────────── */
   function medianFreq(f) {
+    // Flush history when frequency jumps by more than ~3 semitones (factor 1.19).
+    // Prevents a transient octave-detection error from contaminating the median
+    // for the full 450ms window when jumping between strings.
+    if (freqHistory.length > 0) {
+      const prev = freqHistory[freqHistory.length - 1];
+      const ratio = f / prev;
+      if (ratio < 0.84 || ratio > 1.19) freqHistory.length = 0;
+    }
     freqHistory.push(f);
     if (freqHistory.length > MEDIAN_N) freqHistory.shift();
     const s = [...freqHistory].sort((a, b) => a - b);
@@ -143,12 +153,13 @@
      Frequency → Note
   ───────────────────────────────────────────── */
   function freqToNote(freq) {
-    const midi   = 12 * Math.log2(freq / A4_FREQ) + A4_MIDI;
-    const midiR  = Math.round(midi);
-    const cents  = Math.round((midi - midiR) * 100);
-    const name   = NOTE_NAMES[((midiR % 12) + 12) % 12];
-    const octave = Math.floor(midiR / 12) - 1;
-    return { name, octave, cents, freq };
+    const midi     = 12 * Math.log2(freq / A4_FREQ) + A4_MIDI;
+    const midiR    = Math.round(midi);
+    const centsRaw = (midi - midiR) * 100;       // float — used for lock & needle
+    const cents    = Math.round(centsRaw);        // integer — used for display only
+    const name     = NOTE_NAMES[((midiR % 12) + 12) % 12];
+    const octave   = Math.floor(midiR / 12) - 1;
+    return { name, octave, cents, centsRaw, freq };
   }
 
   /* ─────────────────────────────────────────────
@@ -210,7 +221,7 @@
         // Lock accumulator — based on accurate pitch cents (not spring position).
         // Runs at YIN rate (~20fps / 50ms per frame) for fast, accurate response.
         const wasLocked = isLocked;
-        if (Math.abs(lastDet.cents) <= LOCK_CENTS) {
+        if (Math.abs(lastDet.centsRaw) <= LOCK_CENTS) {
           lockCount = Math.min(lockCount + 1, LOCK_FRAMES + 4);
         } else {
           lockCount = Math.max(0, lockCount - 2);  // fast exit when out of tune
@@ -241,7 +252,7 @@
     // Spring physics runs every frame for smooth needle movement
     // Use displayedDet (not lastDet) so needle holds position during the 5s hold
     nTarget = displayedDet
-      ? 50 + Math.max(-50, Math.min(50, displayedDet.cents))
+      ? 50 + Math.max(-50, Math.min(50, displayedDet.centsRaw))
       : 50;
     stepSpring(dt);
     needleEl.style.left = nPos.toFixed(2) + '%';
