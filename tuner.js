@@ -11,9 +11,10 @@
                              //       at 678 so A2(τ≈401) sub-harmonic check cannot
                              //       reach A1(τ≈802), preventing octave-down errors.
   const MAX_FREQ    = 2000;  // Hz — above this rarely needed
-  const CONFIDENCE  = 0.85;  // minimum YIN confidence
+  const CONFIDENCE  = 0.92;  // minimum YIN confidence (raised: rejects noise peaks)
   const YIN_THRESH  = 0.15;  // YIN cumulative-mean threshold
-  const MEDIAN_N    = 9;     // median-filter window size
+  const MEDIAN_N    = 7;     // median-filter window size (7 × ~50ms = 350ms history)
+  const AMP_THRESH  = 0.02;  // RMS amplitude floor — below this = silence, freeze UI
   const LOCK_CENTS  = 2;     // ±2¢ — only truly in-tune position goes green
   const LOCK_FRAMES = 5;     // 5 YIN frames × ~50ms = 250ms to confirm ±2¢
   const FFT_SIZE    = 4096;  // analyser fftSize → time-domain buffer length
@@ -62,10 +63,10 @@
     const N = signal.length;
     const W = Math.floor(N / 2);
 
-    // Reject silence
-    let rms = 0;
-    for (let i = 0; i < N; i++) rms += signal[i] * signal[i];
-    if (rms / N < 5e-4) return null;  // raised: reject fan noise / room hum
+    // Reject silence / background noise — compute true RMS and compare to AMP_THRESH
+    let sumSq = 0;
+    for (let i = 0; i < N; i++) sumSq += signal[i] * signal[i];
+    if (Math.sqrt(sumSq / N) < AMP_THRESH) return null;
 
     // Steps 1 + 2: difference function + cumulative mean normalisation
     const d = new Float32Array(W);
@@ -166,13 +167,17 @@
   /* ─────────────────────────────────────────────
      Spring Physics (needle lerp)
   ───────────────────────────────────────────── */
-  function stepSpring(dt) {
-    // Two-stage smoothing:
-    // Stage 1 — low-pass filter on nTarget (τ≈333ms) removes frame-to-frame jitter
-    smoothedTarget += (nTarget - smoothedTarget) * (1 - Math.exp(-dt * 3));
-    // Stage 2 — needle follows smoothed target (τ≈250ms), stable but visible
-    nPos += (smoothedTarget - nPos) * (1 - Math.exp(-dt * 4));
-    nPos  = Math.max(0, Math.min(100, nPos));
+  function stepSpring(dt, hasSignal) {
+    if (hasSignal) {
+      // Normal tracking: τ₁≈333ms, τ₂≈250ms — follows pitch without chasing noise
+      smoothedTarget += (nTarget - smoothedTarget) * (1 - Math.exp(-dt * 3));
+      nPos           += (smoothedTarget - nPos)    * (1 - Math.exp(-dt * 4));
+    } else {
+      // Silence: very slow drift back to centre — τ₁≈1s, τ₂≈667ms
+      smoothedTarget += (nTarget - smoothedTarget) * (1 - Math.exp(-dt * 1));
+      nPos           += (smoothedTarget - nPos)    * (1 - Math.exp(-dt * 1.5));
+    }
+    nPos = Math.max(0, Math.min(100, nPos));
   }
 
   /* ─────────────────────────────────────────────
@@ -256,7 +261,7 @@
     nTarget = displayedDet
       ? 50 + Math.max(-50, Math.min(50, displayedDet.centsRaw))
       : 50;
-    stepSpring(dt);
+    stepSpring(dt, displayedDet !== null);
     needleEl.style.left = nPos.toFixed(2) + '%';
     centsEl.style.left  = nPos.toFixed(2) + '%';
 
