@@ -45,15 +45,11 @@
   let frozenLocked    = false;
   let lastInTuneBeep  = 0;
 
-  // Debug: log every N yinFrames
-  let yinFrameCount  = 0;
-  const YIN_LOG_INTERVAL = 20; // log every 20 YIN calls (~1s)
-
   /* ─────────────────────────────────────────────
      DOM refs
   ───────────────────────────────────────────── */
   let noteEl, octaveEl, freqEl, centsEl, lockEl,
-      startBtn, needleEl, gaugeEl, displayEl, debugEl;
+      startBtn, needleEl, gaugeEl, displayEl;
 
   /* ─────────────────────────────────────────────
      YIN Pitch Detection
@@ -188,14 +184,6 @@
   }
 
   /* ─────────────────────────────────────────────
-     Debug overlay helper
-  ───────────────────────────────────────────── */
-  function dbg(msg) {
-    console.log('[Tuner]', msg);
-    if (debugEl) debugEl.textContent = msg;
-  }
-
-  /* ─────────────────────────────────────────────
      RAF Loop
   ───────────────────────────────────────────── */
   function rafLoop(ts) {
@@ -208,27 +196,11 @@
 
     if (frameCount % 3 === 0) {
       // Safety: if analyser went away, bail
-      if (!analyser) { dbg('ERROR: analyser is null inside RAF'); return; }
+      if (!analyser) return;
 
       analyser.getFloatTimeDomainData(pcmBuf);
 
-      // Periodic debug log
-      yinFrameCount++;
-      const doLog = (yinFrameCount % YIN_LOG_INTERVAL === 0);
-
       const res = yin(pcmBuf, audioCtx.sampleRate);
-
-      if (doLog) {
-        if (res.null) {
-          dbg('no signal — ' + res.reason +
-            (res.rms   != null ? ' rms=' + res.rms.toFixed(4)        : '') +
-            (res.confidence != null ? ' conf=' + res.confidence.toFixed(2) : '') +
-            (res.freq  != null ? ' freq=' + res.freq.toFixed(1)       : ''));
-        } else {
-          dbg('detected ' + res.freq.toFixed(1) + 'Hz  conf=' + res.confidence.toFixed(2) +
-            '  rms=' + res.rms.toFixed(4) + '  ctx=' + audioCtx.state);
-        }
-      }
 
       if (!res.null) {
         const prevDet = lastDet;
@@ -424,8 +396,6 @@
     needleEl  = document.getElementById('tuner-needle');
     gaugeEl   = document.getElementById('tuner-gauge');
     displayEl = document.getElementById('tuner-display');
-    debugEl   = document.getElementById('tuner-debug');
-
     if (!startBtn) {
       console.error('[Tuner] tuner-start-btn not found in DOM');
       return;
