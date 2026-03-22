@@ -15,9 +15,10 @@
   const YIN_THRESH  = 0.15;  // YIN cumulative-mean threshold
   const MEDIAN_N    = 7;     // median-filter window size (7 × ~50ms = 350ms history)
   const AMP_THRESH  = 0.02;  // RMS amplitude floor — below this = silence, freeze UI
-  const LOCK_CENTS  = 2;     // ±2¢ — only truly in-tune position goes green
-  const LOCK_FRAMES = 5;     // 5 YIN frames × ~50ms = 250ms to confirm ±2¢
-  const FFT_SIZE    = 4096;  // analyser fftSize → time-domain buffer length
+  const LOCK_CENTS   = 2;    // ±2¢ — only truly in-tune position goes green
+  const TRANSIENT_MS = 180;  // ms to ignore after note onset (attack harmonics settle)
+  const STABILITY_N  = 8;    // all 8 consecutive ±2¢ readings (~400ms) required for green
+  const FFT_SIZE     = 4096; // analyser fftSize → time-domain buffer length
 
   /* ─────────────────────────────────────────────
      State
@@ -36,12 +37,12 @@
   let lastTs         = 0;
 
   // Smoothing & lock state
-  const freqHistory = [];
-  let frameCount    = 0;
-  let stableFrames  = 0;   // consecutive YIN frames within ±LOCK_CENTS; resets to 0
-                           // instantly on ANY out-of-tune frame (no gradual decay)
-  let isLocked      = false;
-  let lastDet       = null;  // last FreqToNote result, or null
+  const freqHistory  = [];
+  let frameCount     = 0;
+  let isLocked       = false;
+  let lastDet        = null;  // last FreqToNote result, or null
+  let attackTime     = 0;     // performance.now() at note onset; transient window starts here
+  const centsWindow  = [];    // rolling STABILITY_N cents readings; all must be ±LOCK_CENTS
 
   // Display hold — keeps note + needle visible for up to 5s after silence
   let displayedDet    = null;  // what is currently rendered (may outlive lastDet)
@@ -215,6 +216,7 @@
       if (res && res.confidence >= CONFIDENCE
                && res.freq >= MIN_FREQ
                && res.freq <= MAX_FREQ) {
+        const prevDet = lastDet;
         lastDet = freqToNote(medianFreq(res.freq));
 
         // New active detection — cancel any hold timer and update display
@@ -223,32 +225,38 @@
         displayedDet = lastDet;
         updateUI(displayedDet);
 
-        // Lock logic — stableFrames counts CONSECUTIVE in-tune YIN frames.
-        // Any single out-of-tune frame resets the counter to zero immediately,
-        // so isLocked can never be true when the displayed pitch is wrong.
-        const wasLocked = isLocked;
-        if (Math.abs(lastDet.centsRaw) <= LOCK_CENTS) {
-          stableFrames = Math.min(stableFrames + 1, LOCK_FRAMES + 2);
-        } else {
-          stableFrames = 0;          // instant reset — no carryover to next note
+        // Transient rejection: reset window on note onset (silence → sound)
+        if (prevDet === null) {
+          attackTime = performance.now();
+          centsWindow.length = 0;
         }
-        isLocked = stableFrames >= LOCK_FRAMES;
+
+        // Stability gate: only accumulate readings after the 180ms attack window
+        const wasLocked = isLocked;
+        if (performance.now() - attackTime >= TRANSIENT_MS) {
+          centsWindow.push(lastDet.centsRaw);
+          if (centsWindow.length > STABILITY_N) centsWindow.shift();
+        }
+        // Green only when all STABILITY_N readings are within ±LOCK_CENTS
+        isLocked = centsWindow.length === STABILITY_N &&
+                   centsWindow.every(c => Math.abs(c) <= LOCK_CENTS);
         if (isLocked && !wasLocked) playLockSound();
 
       } else {
-        lastDet      = null;
+        lastDet            = null;
         freqHistory.length = 0;   // reset median on silence / low confidence
-        stableFrames = 0;         // silence always clears the consecutive counter
-        isLocked     = false;
+        centsWindow.length = 0;   // silence clears the stability window
+        attackTime         = 0;
+        isLocked           = false;
 
         // Silence — start 5s hold timer if not already running
         if (displayedDet !== null && holdTimer === null) {
           frozenLocked = isLocked;
           holdTimer = setTimeout(() => {
-            displayedDet = null;
-            frozenLocked = false;
-            holdTimer    = null;
-            stableFrames = 0;
+            displayedDet       = null;
+            frozenLocked       = false;
+            holdTimer          = null;
+            centsWindow.length = 0;
             updateUI(null);
           }, 5000);
         }
@@ -325,11 +333,12 @@
 
       pcmBuf = new Float32Array(FFT_SIZE);
 
-      active     = true;
-      frameCount = 0;
-      stableFrames = 0;
-      isLocked   = false;
-      lastDet    = null;
+      active             = true;
+      frameCount         = 0;
+      centsWindow.length = 0;
+      attackTime         = 0;
+      isLocked           = false;
+      lastDet            = null;
       nPos           = 50;
       nVel           = 0;
       freqHistory.length = 0;
