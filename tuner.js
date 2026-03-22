@@ -177,6 +177,7 @@
       : 50;
     stepSpring(dt);
     needleEl.style.left = nPos.toFixed(2) + '%';
+    centsEl.style.left  = nPos.toFixed(2) + '%';
   }
 
   /* ─────────────────────────────────────────────

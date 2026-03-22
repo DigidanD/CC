@@ -346,37 +346,42 @@
     ══════════════════════════════ -->
     <div id="tab-tuner" class="tab-panel">
 
-      <div class="tuner-card">
-
-        <!-- Note + frequency display -->
-        <div class="tuner-display" id="tuner-display">
-          <div class="tuner-note-row">
-            <span class="tuner-note" id="tuner-note">—</span><span class="tuner-octave" id="tuner-octave"></span>
-          </div>
-          <div class="tuner-freq" id="tuner-freq">— Hz</div>
+      <!-- Note display — same card style as the rest of the app -->
+      <section class="bpm-section tuner-display" id="tuner-display">
+        <div class="tuner-note-wrap">
+          <span class="tuner-note" id="tuner-note">—</span>
+          <span class="tuner-octave" id="tuner-octave"></span>
         </div>
+        <span class="tuner-freq" id="tuner-freq">— Hz</span>
+      </section>
 
-        <!-- Gauge -->
-        <div class="tuner-gauge-wrap">
-          <div class="tuner-ticks" aria-hidden="true">
-            <span>−50</span><span>−25</span><span>0</span><span>+25</span><span>+50</span>
-          </div>
-          <div class="tuner-gauge" id="tuner-gauge">
-            <div class="tuner-gauge-track"></div>
+      <!-- Tuning bar card -->
+      <div class="bpm-section tuner-bar-card">
+
+        <!-- Gauge: cents float + track + scale -->
+        <div class="tuner-gauge" id="tuner-gauge">
+          <div class="tuner-cents" id="tuner-cents">—</div>
+          <div class="tuner-track-wrap">
+            <div class="tuner-track"></div>
+            <div class="tuner-track-center" aria-hidden="true"></div>
             <div class="tuner-needle" id="tuner-needle"></div>
           </div>
-          <div class="tuner-cents" id="tuner-cents">— ¢</div>
+          <div class="tuner-scale" aria-hidden="true">
+            <span>−50</span><span>−25</span><span>0</span><span>+25</span><span>+50</span>
+          </div>
         </div>
 
-        <!-- Lock indicator -->
-        <div class="tuner-lock" id="tuner-lock" aria-live="polite">
-          <span class="tuner-lock-dot"></span>
-          <span>IN TUNE</span>
-        </div>
+        <!-- Lock badge -->
+        <div class="tuner-lock" id="tuner-lock" aria-live="polite">&#10003;&nbsp;IN TUNE</div>
 
-      </div><!-- /.tuner-card -->
+      </div>
 
-      <button class="tuner-btn" id="tuner-start-btn">Start Tuner</button>
+      <!-- Start button — reuses btn-play from the rest of the app -->
+      <section class="action-section">
+        <button class="btn-play" id="tuner-start-btn" aria-label="Start tuner">
+          <span class="btn-label">START</span>
+        </button>
+      </section>
 
     </div><!-- /#tab-tuner -->
 
