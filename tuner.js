@@ -38,7 +38,8 @@
   // Smoothing & lock state
   const freqHistory = [];
   let frameCount    = 0;
-  let lockCount     = 0;
+  let stableFrames  = 0;   // consecutive YIN frames within ±LOCK_CENTS; resets to 0
+                           // instantly on ANY out-of-tune frame (no gradual decay)
   let isLocked      = false;
   let lastDet       = null;  // last FreqToNote result, or null
 
@@ -218,22 +219,23 @@
         displayedDet = lastDet;
         updateUI(displayedDet);
 
-        // Lock accumulator — based on accurate pitch cents (not spring position).
-        // Runs at YIN rate (~20fps / 50ms per frame) for fast, accurate response.
+        // Lock logic — stableFrames counts CONSECUTIVE in-tune YIN frames.
+        // Any single out-of-tune frame resets the counter to zero immediately,
+        // so isLocked can never be true when the displayed pitch is wrong.
         const wasLocked = isLocked;
         if (Math.abs(lastDet.centsRaw) <= LOCK_CENTS) {
-          lockCount = Math.min(lockCount + 1, LOCK_FRAMES + 4);
+          stableFrames = Math.min(stableFrames + 1, LOCK_FRAMES + 2);
         } else {
-          lockCount = Math.max(0, lockCount - 2);  // fast exit when out of tune
+          stableFrames = 0;          // instant reset — no carryover to next note
         }
-        isLocked = lockCount >= LOCK_FRAMES;
+        isLocked = stableFrames >= LOCK_FRAMES;
         if (isLocked && !wasLocked) playLockSound();
 
       } else {
-        lastDet = null;
+        lastDet      = null;
         freqHistory.length = 0;   // reset median on silence / low confidence
-        lockCount = Math.max(0, lockCount - 1);  // gradual release on silence
-        isLocked  = lockCount >= LOCK_FRAMES;
+        stableFrames = 0;         // silence always clears the consecutive counter
+        isLocked     = false;
 
         // Silence — start 5s hold timer if not already running
         if (displayedDet !== null && holdTimer === null) {
@@ -242,7 +244,7 @@
             displayedDet = null;
             frozenLocked = false;
             holdTimer    = null;
-            lockCount    = 0;
+            stableFrames = 0;
             updateUI(null);
           }, 5000);
         }
@@ -321,7 +323,7 @@
 
       active     = true;
       frameCount = 0;
-      lockCount  = 0;
+      stableFrames = 0;
       isLocked   = false;
       lastDet    = null;
       nPos           = 50;
