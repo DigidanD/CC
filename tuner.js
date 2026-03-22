@@ -12,8 +12,8 @@
   const CONFIDENCE  = 0.85;  // minimum YIN confidence
   const YIN_THRESH  = 0.15;  // YIN cumulative-mean threshold
   const MEDIAN_N    = 9;     // median-filter window size
-  const LOCK_CENTS  = 5;     // ±¢ considered "in tune"
-  const LOCK_FRAMES = 8;     // consecutive good frames to lock
+  const LOCK_CENTS  = 10;    // ±units on 0-100 scale (~±10¢) = green zone
+  const LOCK_FRAMES = 12;    // frames at 60fps ≈ 200ms to confirm lock
   const FFT_SIZE    = 4096;  // analyser fftSize → time-domain buffer length
 
   /* ─────────────────────────────────────────────
@@ -73,16 +73,22 @@
       d[tau] = rSum > 0 ? (diff * tau) / rSum : 0;
     }
 
-    // Step 3: global minimum of d' within the musically valid frequency range.
-    // "First minimum + descent" is avoided because the descent can overshoot the
-    // true fundamental's valley and land on a false minimum one whole-tone away.
+    // Step 3: standard YIN — first τ below threshold, descend to local minimum.
+    // Global-minimum was avoided for fear of overshoot, but it caused harmonic
+    // misidentification (e.g. High E4 detected as A4 because τ≈100 < τ≈134 had
+    // a lower d' value). First-minimum correctly tracks the fundamental.
     const tauMin = Math.max(2, Math.floor(sampleRate / MAX_FREQ));
     const tauMax = Math.min(W - 1, Math.floor(sampleRate / MIN_FREQ));
-    let tau = tauMin;
-    for (let t = tauMin + 1; t <= tauMax; t++) {
-      if (d[t] < d[tau]) tau = t;
+    let tau = -1;
+    for (let t = tauMin; t <= tauMax; t++) {
+      if (d[t] < YIN_THRESH) {
+        // descend to the bottom of this dip (local minimum)
+        while (t + 1 <= tauMax && d[t + 1] < d[t]) t++;
+        tau = t;
+        break;
+      }
     }
-    if (d[tau] >= YIN_THRESH) return null;
+    if (tau === -1) return null;
 
     // Step 4: parabolic interpolation
     const x0 = tau > tauMin ? tau - 1 : tau;
@@ -136,6 +142,23 @@
   }
 
   /* ─────────────────────────────────────────────
+     Lock Sound — short ding on entering green zone
+  ───────────────────────────────────────────── */
+  function playLockSound() {
+    if (!audioCtx) return;
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sine';
+    osc.frequency.value = 880;          // A5 — clear, pleasant ding
+    gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.3);
+  }
+
+  /* ─────────────────────────────────────────────
      RAF Loop
   ───────────────────────────────────────────── */
   function rafLoop(ts) {
@@ -160,15 +183,7 @@
         freqHistory.length = 0;   // reset median on silence / low confidence
       }
 
-      // Lock accumulator
-      if (lastDet && Math.abs(lastDet.cents) <= LOCK_CENTS) {
-        lockCount = Math.min(lockCount + 1, LOCK_FRAMES + 2);
-      } else {
-        lockCount = Math.max(0, lockCount - 2);
-      }
-      isLocked = lockCount >= LOCK_FRAMES;
-
-      updateUI(lastDet, isLocked);
+      updateUI(lastDet);
     }
 
     // Spring physics runs every frame for smooth needle movement
@@ -178,22 +193,38 @@
     stepSpring(dt);
     needleEl.style.left = nPos.toFixed(2) + '%';
     centsEl.style.left  = nPos.toFixed(2) + '%';
+
+    // Lock accumulator — based on smoothed needle position every frame.
+    // This means: if the needle *looks* in the green zone → light up green.
+    const wasLocked = isLocked;
+    if (lastDet && Math.abs(nPos - 50) <= LOCK_CENTS) {
+      lockCount = Math.min(lockCount + 1, LOCK_FRAMES + 4);
+    } else {
+      lockCount = Math.max(0, lockCount - 1);
+    }
+    isLocked = lockCount >= LOCK_FRAMES;
+
+    // Update lock visuals every frame (responsive to needle position)
+    lockEl.classList.toggle('visible', isLocked);
+    gaugeEl.classList.toggle('locked', isLocked);
+    displayEl.classList.toggle('locked', isLocked);
+    centsEl.classList.toggle('locked', isLocked);
+    needleEl.classList.toggle('locked', isLocked);
+
+    // Play ding exactly once on lock entry
+    if (isLocked && !wasLocked) playLockSound();
   }
 
   /* ─────────────────────────────────────────────
      UI Update
   ───────────────────────────────────────────── */
-  function updateUI(det, locked) {
+  // Updates note text only — lock visuals are driven by nPos in the RAF loop
+  function updateUI(det) {
     if (!det) {
       noteEl.textContent   = '—';
       octaveEl.textContent = '';
       freqEl.textContent   = '— Hz';
       centsEl.textContent  = '—';
-      lockEl.classList.remove('visible');
-      gaugeEl.classList.remove('locked');
-      displayEl.classList.remove('locked');
-      centsEl.classList.remove('locked');
-      needleEl.classList.remove('locked');
       return;
     }
 
@@ -201,12 +232,6 @@
     octaveEl.textContent = det.octave;
     freqEl.textContent   = det.freq.toFixed(1) + ' Hz';
     centsEl.textContent  = (det.cents >= 0 ? '+' : '') + det.cents + ' ¢';
-
-    lockEl.classList.toggle('visible', locked);
-    gaugeEl.classList.toggle('locked', locked);
-    displayEl.classList.toggle('locked', locked);
-    centsEl.classList.toggle('locked', locked);
-    needleEl.classList.toggle('locked', locked);
   }
 
   /* ─────────────────────────────────────────────
@@ -278,7 +303,12 @@
     freqHistory.length = 0;
     nPos = 50; nVel = 0; smoothedTarget = 50;
     needleEl.style.left = '50%';
-    updateUI(null, false);
+    updateUI(null);
+    lockEl.classList.remove('visible');
+    gaugeEl.classList.remove('locked');
+    displayEl.classList.remove('locked');
+    centsEl.classList.remove('locked');
+    needleEl.classList.remove('locked');
   }
 
   /* ─────────────────────────────────────────────
