@@ -11,7 +11,7 @@
   const MAX_FREQ    = 2000;  // Hz — above this rarely needed
   const CONFIDENCE  = 0.85;  // minimum YIN confidence
   const YIN_THRESH  = 0.15;  // YIN cumulative-mean threshold
-  const MEDIAN_N    = 5;     // median-filter window size
+  const MEDIAN_N    = 9;     // median-filter window size
   const LOCK_CENTS  = 5;     // ±¢ considered "in tune"
   const LOCK_FRAMES = 8;     // consecutive good frames to lock
   const FFT_SIZE    = 4096;  // analyser fftSize → time-domain buffer length
@@ -27,10 +27,11 @@
   let pcmBuf    = null;
 
   // Needle spring physics
-  let nPos    = 50;   // current position 0–100 (50 = centre = 0 ¢)
-  let nVel    = 0;
-  let nTarget = 50;
-  let lastTs  = 0;
+  let nPos           = 50;   // current position 0–100 (50 = centre = 0 ¢)
+  let nVel           = 0;
+  let nTarget        = 50;
+  let smoothedTarget = 50;   // low-pass filtered target, prevents frame jitter
+  let lastTs         = 0;
 
   // Smoothing & lock state
   const freqHistory = [];
@@ -126,9 +127,11 @@
      Spring Physics (needle lerp)
   ───────────────────────────────────────────── */
   function stepSpring(dt) {
-    // Exponential lerp — critically overdamped, zero oscillation.
-    // Previous spring (k=14, c=0.72) had damping ratio ζ≈0.1 → heavily oscillating.
-    nPos += (nTarget - nPos) * (1 - Math.exp(-dt * 10));
+    // Two-stage smoothing:
+    // Stage 1 — low-pass filter on nTarget (τ≈250ms) removes frame-to-frame jitter
+    smoothedTarget += (nTarget - smoothedTarget) * (1 - Math.exp(-dt * 4));
+    // Stage 2 — needle follows smoothed target (τ≈167ms), feels physical, not jumpy
+    nPos += (smoothedTarget - nPos) * (1 - Math.exp(-dt * 6));
     nPos  = Math.max(0, Math.min(100, nPos));
   }
 
@@ -244,8 +247,9 @@
       lockCount  = 0;
       isLocked   = false;
       lastDet    = null;
-      nPos       = 50;
-      nVel       = 0;
+      nPos           = 50;
+      nVel           = 0;
+      smoothedTarget = 50;
       freqHistory.length = 0;
       lastTs = performance.now();
 
@@ -272,7 +276,7 @@
     isLocked   = false;
     lastDet    = null;
     freqHistory.length = 0;
-    nPos = 50; nVel = 0;
+    nPos = 50; nVel = 0; smoothedTarget = 50;
     needleEl.style.left = '50%';
     updateUI(null, false);
   }
