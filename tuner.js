@@ -79,9 +79,6 @@
     }
 
     // Step 3: standard YIN — first τ below threshold, descend to local minimum.
-    // Global-minimum was avoided for fear of overshoot, but it caused harmonic
-    // misidentification (e.g. High E4 detected as A4 because τ≈100 < τ≈134 had
-    // a lower d' value). First-minimum correctly tracks the fundamental.
     const tauMin = Math.max(2, Math.floor(sampleRate / MAX_FREQ));
     const tauMax = Math.min(W - 1, Math.floor(sampleRate / MIN_FREQ));
     let tau = -1;
@@ -94,6 +91,24 @@
       }
     }
     if (tau === -1) return null;
+
+    // Sub-harmonic check — prevents octave-up errors on D3/G3/B3.
+    // If the detected τ is actually the 2nd harmonic (period = τ/2 of fundamental),
+    // there will be an equally valid dip at ~2×τ (the true fundamental period).
+    // Scan [1.85×τ … 2.15×τ]; if a dip exists below threshold there, prefer it.
+    const sh2lo = Math.round(tau * 1.85);
+    const sh2hi = Math.min(tauMax, Math.round(tau * 2.15));
+    if (sh2lo <= tauMax) {
+      let tBest = sh2lo;
+      for (let t = sh2lo + 1; t <= sh2hi; t++) {
+        if (d[t] < d[tBest]) tBest = t;
+      }
+      if (d[tBest] < YIN_THRESH) {
+        // Descend to local minimum in the sub-harmonic region
+        while (tBest + 1 <= tauMax && d[tBest + 1] < d[tBest]) tBest++;
+        tau = tBest;
+      }
+    }
 
     // Step 4: parabolic interpolation
     const x0 = tau > tauMin ? tau - 1 : tau;
@@ -139,10 +154,10 @@
   ───────────────────────────────────────────── */
   function stepSpring(dt) {
     // Two-stage smoothing:
-    // Stage 1 — low-pass filter on nTarget (τ≈250ms) removes frame-to-frame jitter
-    smoothedTarget += (nTarget - smoothedTarget) * (1 - Math.exp(-dt * 4));
-    // Stage 2 — needle follows smoothed target (τ≈167ms), feels physical, not jumpy
-    nPos += (smoothedTarget - nPos) * (1 - Math.exp(-dt * 6));
+    // Stage 1 — low-pass filter on nTarget (τ≈400ms) removes frame-to-frame jitter
+    smoothedTarget += (nTarget - smoothedTarget) * (1 - Math.exp(-dt * 2.5));
+    // Stage 2 — needle follows smoothed target (τ≈285ms), slow and stable
+    nPos += (smoothedTarget - nPos) * (1 - Math.exp(-dt * 3.5));
     nPos  = Math.max(0, Math.min(100, nPos));
   }
 
