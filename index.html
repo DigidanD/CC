@@ -20,15 +20,20 @@
 
     <!-- Header -->
     <header class="app-header">
-      <span class="app-title">&#9833; Metro</span>
-      <div class="header-center">
-        <div class="header-timer" id="header-timer-wrap" style="display:none">
-          <span id="timer-display" class="timer-time">--:--</span>
-          <span class="timer-label">remaining</span>
-        </div>
+      <h1 class="app-title">&#9833; METRONOME</h1>
+      <div class="header-timer" id="header-timer-wrap" style="display:none">
+        <span id="timer-display" class="timer-time">--:--</span>
+        <span class="timer-label">remaining</span>
       </div>
-      <button class="header-settings-btn" id="settings-btn" aria-label="Settings">&#9881;</button>
     </header>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav" role="tablist">
+      <button class="tab-btn active" data-tab="metronome" role="tab">Metronome</button>
+      <button class="tab-btn" data-tab="rhythm" role="tab">Rhythm Buddy</button>
+      <button class="tab-btn" data-tab="tuner" role="tab">Tuner</button>
+      <button class="tab-btn" data-tab="log" role="tab">Log</button>
+    </nav>
 
     <!-- ══════════════════════════════
          METRONOME TAB
@@ -44,6 +49,7 @@
         <div class="accent-hint">Tap a beat dot to cycle: normal &#8594; accent &#8594; silent</div>
         <div class="beat-util-row">
           <button class="btn-save" id="save-btn" title="Save all settings">&#128190; Save Preset</button>
+          <button class="btn-flash-toggle" id="flash-toggle" title="Toggle screen flash">&#9889; Screen Flash</button>
         </div>
         <div class="save-toast" id="save-toast" style="display:none">Saved &#10003;</div>
         <div class="count-in-display" id="count-in-display">
@@ -83,6 +89,7 @@
                min="0" max="100" value="80" aria-label="Master volume"
                style="--slider-pct:80%" />
         <span class="volume-value" id="master-volume-label">80%</span>
+        <button class="pill-toggle" id="count-in-pill" aria-pressed="true">Count-in</button>
       </div>
 
       <!-- Play / Tap -->
@@ -95,6 +102,76 @@
         </button>
       </section>
 
+      <!-- ── Controls: 4 compact dropdown selectors ── -->
+      <div class="ctrl-bar ctrl-bar--4">
+
+        <!-- Note Value -->
+        <div class="ctrl-sel" id="note-sel">
+          <button class="ctrl-trigger" id="note-trigger" aria-haspopup="listbox">
+            <span class="ctrl-trigger-val" id="note-val">&#9833;</span>
+            <span class="ctrl-trigger-label">NOTE</span>
+            <span class="ctrl-trigger-arrow"></span>
+          </button>
+          <div class="ctrl-sel-panel" id="note-group" role="listbox" aria-label="Note value">
+            <button class="ctrl-opt active" data-subdivision="1" role="option">&#9833; Quarter</button>
+            <button class="ctrl-opt"        data-subdivision="2" role="option">&#9834; Eighth</button>
+            <button class="ctrl-opt"        data-subdivision="4" role="option">&#9836; 16th</button>
+            <button class="ctrl-opt"        data-subdivision="3" role="option">&#9833; Triplet</button>
+            <button class="ctrl-opt"        data-subdivision="6" role="option">&#9834; Triplet</button>
+          </div>
+        </div>
+
+        <!-- Time Signature -->
+        <div class="ctrl-sel" id="timesig-sel">
+          <button class="ctrl-trigger" id="timesig-trigger" aria-haspopup="listbox">
+            <span class="ctrl-trigger-val" id="timesig-val">4/4</span>
+            <span class="ctrl-trigger-label">TIME</span>
+            <span class="ctrl-trigger-arrow"></span>
+          </button>
+          <div class="ctrl-sel-panel" id="timesig-group" role="listbox" aria-label="Time signature">
+            <button class="ctrl-opt"        data-upper="2" data-lower="4" role="option">2/4</button>
+            <button class="ctrl-opt"        data-upper="3" data-lower="4" role="option">3/4</button>
+            <button class="ctrl-opt active" data-upper="4" data-lower="4" role="option">4/4</button>
+            <button class="ctrl-opt"        data-upper="5" data-lower="4" role="option">5/4</button>
+            <button class="ctrl-opt"        data-upper="6" data-lower="8" role="option">6/8</button>
+            <button class="ctrl-opt"        data-upper="7" data-lower="8" role="option">7/8</button>
+          </div>
+        </div>
+
+        <!-- Sound -->
+        <div class="ctrl-sel" id="sound-sel">
+          <button class="ctrl-trigger" id="sound-trigger" aria-haspopup="listbox">
+            <span class="ctrl-trigger-val" id="sound-val">Beep</span>
+            <span class="ctrl-trigger-label">SOUND</span>
+            <span class="ctrl-trigger-arrow"></span>
+          </button>
+          <div class="ctrl-sel-panel" id="sound-group" role="listbox" aria-label="Sound type">
+            <button class="ctrl-opt"        data-sound="click"   role="option">Clap</button>
+            <button class="ctrl-opt"        data-sound="wood"    role="option">Wood</button>
+            <button class="ctrl-opt active" data-sound="beep"    role="option">Beep</button>
+            <button class="ctrl-opt"        data-sound="hihat"   role="option">Hi-Hat</button>
+            <button class="ctrl-opt"        data-sound="rim"     role="option">Rim</button>
+            <button class="ctrl-opt"        data-sound="cowbell" role="option">Cowbell</button>
+          </div>
+        </div>
+
+        <!-- Accent -->
+        <div class="ctrl-sel" id="accent-sel">
+          <button class="ctrl-trigger" id="accent-trigger" aria-haspopup="listbox">
+            <span class="ctrl-trigger-val" id="accent-val">1</span>
+            <span class="ctrl-trigger-label">ACCENT</span>
+            <span class="ctrl-trigger-arrow"></span>
+          </button>
+          <div class="ctrl-sel-panel" id="accent-group" role="listbox" aria-label="Accent pattern">
+            <button class="ctrl-opt active" data-accent="beat1"  role="option">Beat 1</button>
+            <button class="ctrl-opt"        data-accent="1and3"  role="option">1 &amp; 3</button>
+            <button class="ctrl-opt"        data-accent="2and4"  role="option">2 &amp; 4</button>
+            <button class="ctrl-opt"        data-accent="all"    role="option">All Beats</button>
+            <button class="ctrl-opt"        data-accent="off"    role="option">Off</button>
+          </div>
+        </div>
+
+      </div><!-- /.ctrl-bar -->
 
       <!-- ── Feature Pills + Panels ── -->
       <div class="feat-section">
@@ -311,142 +388,13 @@
     </div><!-- /#tab-tuner -->
 
     <!-- ══════════════════════════════
-         TRAIN TAB (placeholder)
-    ══════════════════════════════ -->
-    <div id="tab-train" class="tab-panel">
-      <div class="log-empty" style="margin-top:60px;text-align:center;color:var(--text-muted);font-size:0.9rem;letter-spacing:1px;">
-        Coming soon — Training tools
-      </div>
-    </div><!-- /#tab-train -->
-
-    <!-- ══════════════════════════════
          LOG TAB
     ══════════════════════════════ -->
     <div id="tab-log" class="tab-panel">
       <!-- rendered by practice-log.js -->
     </div><!-- /#tab-log -->
 
-    <!-- ── Bottom Navigation ── -->
-    <nav class="bottom-nav" role="tablist">
-      <button class="bottom-nav-btn active" data-tab="metronome" role="tab" aria-selected="true">
-        <span class="bnav-icon">&#9833;</span>
-        <span class="bnav-label">Metro</span>
-      </button>
-      <button class="bottom-nav-btn" data-tab="tuner" role="tab" aria-selected="false">
-        <span class="bnav-icon">&#127908;</span>
-        <span class="bnav-label">Tune</span>
-      </button>
-      <button class="bottom-nav-btn" data-tab="train" role="tab" aria-selected="false" data-placeholder="true">
-        <span class="bnav-icon">&#127891;</span>
-        <span class="bnav-label">Train</span>
-      </button>
-      <button class="bottom-nav-btn" data-tab="log" role="tab" aria-selected="false">
-        <span class="bnav-icon">&#128202;</span>
-        <span class="bnav-label">Log</span>
-      </button>
-    </nav>
-
   </div><!-- /.app -->
-
-  <!-- ── Settings Overlay ── -->
-  <div class="settings-overlay" id="settings-overlay"></div>
-
-  <!-- ── Settings Drawer ── -->
-  <aside class="settings-drawer" id="settings-drawer" aria-hidden="true">
-    <div class="settings-drawer-handle"></div>
-    <div class="settings-drawer-header">
-      <h2 class="settings-title">Settings</h2>
-      <button class="settings-close-btn" id="settings-close-btn" aria-label="Close">&#10005;</button>
-    </div>
-    <div class="settings-drawer-body">
-
-      <!-- 4 Selectors in 2×2 grid -->
-      <div class="settings-selectors">
-
-        <div class="ctrl-sel" id="note-sel">
-          <button class="ctrl-trigger" id="note-trigger" aria-haspopup="listbox">
-            <span class="ctrl-trigger-val" id="note-val">&#9833;</span>
-            <span class="ctrl-trigger-label">NOTE</span>
-            <span class="ctrl-trigger-arrow"></span>
-          </button>
-          <div class="ctrl-sel-panel" id="note-group" role="listbox" aria-label="Note value">
-            <button class="ctrl-opt active" data-subdivision="1" role="option">&#9833; Quarter</button>
-            <button class="ctrl-opt"        data-subdivision="2" role="option">&#9834; Eighth</button>
-            <button class="ctrl-opt"        data-subdivision="4" role="option">&#9836; 16th</button>
-            <button class="ctrl-opt"        data-subdivision="3" role="option">&#9833; Triplet</button>
-            <button class="ctrl-opt"        data-subdivision="6" role="option">&#9834; Triplet</button>
-          </div>
-        </div>
-
-        <div class="ctrl-sel" id="timesig-sel">
-          <button class="ctrl-trigger" id="timesig-trigger" aria-haspopup="listbox">
-            <span class="ctrl-trigger-val" id="timesig-val">4/4</span>
-            <span class="ctrl-trigger-label">TIME</span>
-            <span class="ctrl-trigger-arrow"></span>
-          </button>
-          <div class="ctrl-sel-panel" id="timesig-group" role="listbox" aria-label="Time signature">
-            <button class="ctrl-opt"        data-upper="2" data-lower="4" role="option">2/4</button>
-            <button class="ctrl-opt"        data-upper="3" data-lower="4" role="option">3/4</button>
-            <button class="ctrl-opt active" data-upper="4" data-lower="4" role="option">4/4</button>
-            <button class="ctrl-opt"        data-upper="5" data-lower="4" role="option">5/4</button>
-            <button class="ctrl-opt"        data-upper="6" data-lower="8" role="option">6/8</button>
-            <button class="ctrl-opt"        data-upper="7" data-lower="8" role="option">7/8</button>
-          </div>
-        </div>
-
-        <div class="ctrl-sel" id="sound-sel">
-          <button class="ctrl-trigger" id="sound-trigger" aria-haspopup="listbox">
-            <span class="ctrl-trigger-val" id="sound-val">Beep</span>
-            <span class="ctrl-trigger-label">SOUND</span>
-            <span class="ctrl-trigger-arrow"></span>
-          </button>
-          <div class="ctrl-sel-panel" id="sound-group" role="listbox" aria-label="Sound type">
-            <button class="ctrl-opt"        data-sound="click"   role="option">Clap</button>
-            <button class="ctrl-opt"        data-sound="wood"    role="option">Wood</button>
-            <button class="ctrl-opt active" data-sound="beep"    role="option">Beep</button>
-            <button class="ctrl-opt"        data-sound="hihat"   role="option">Hi-Hat</button>
-            <button class="ctrl-opt"        data-sound="rim"     role="option">Rim</button>
-            <button class="ctrl-opt"        data-sound="cowbell" role="option">Cowbell</button>
-          </div>
-        </div>
-
-        <div class="ctrl-sel" id="accent-sel">
-          <button class="ctrl-trigger" id="accent-trigger" aria-haspopup="listbox">
-            <span class="ctrl-trigger-val" id="accent-val">1</span>
-            <span class="ctrl-trigger-label">ACCENT</span>
-            <span class="ctrl-trigger-arrow"></span>
-          </button>
-          <div class="ctrl-sel-panel" id="accent-group" role="listbox" aria-label="Accent pattern">
-            <button class="ctrl-opt active" data-accent="beat1"  role="option">Beat 1</button>
-            <button class="ctrl-opt"        data-accent="1and3"  role="option">1 &amp; 3</button>
-            <button class="ctrl-opt"        data-accent="2and4"  role="option">2 &amp; 4</button>
-            <button class="ctrl-opt"        data-accent="all"    role="option">All Beats</button>
-            <button class="ctrl-opt"        data-accent="off"    role="option">Off</button>
-          </div>
-        </div>
-
-      </div><!-- /.settings-selectors -->
-
-      <!-- Count-in toggle -->
-      <label class="toggle-row toggle-row--compact">
-        <span class="toggle-label-text">Count-in</span>
-        <span class="toggle-switch">
-          <input type="checkbox" id="count-in-toggle" checked>
-          <span class="toggle-thumb"></span>
-        </span>
-      </label>
-
-      <!-- Screen Flash toggle -->
-      <label class="toggle-row toggle-row--compact">
-        <span class="toggle-label-text">Screen Flash</span>
-        <span class="toggle-switch">
-          <input type="checkbox" id="flash-toggle" checked>
-          <span class="toggle-thumb"></span>
-        </span>
-      </label>
-
-    </div><!-- /.settings-drawer-body -->
-  </aside>
 
   <script src="metronome.js"></script>
   <script src="rhythm.js"></script>

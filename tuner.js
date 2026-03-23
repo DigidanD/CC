@@ -380,7 +380,7 @@
 
     startBtn.addEventListener('click', startTuner);
 
-    document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         if (btn.dataset.tab !== 'tuner' && active) stopTuner();
       });
