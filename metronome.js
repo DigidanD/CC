@@ -765,9 +765,9 @@
   tapBtn.addEventListener('click', onTapTempo);
 
   if (flashToggleBtn) {
-    flashToggleBtn.addEventListener('click', () => {
-      state.flashEnabled = !state.flashEnabled;
-      flashToggleBtn.classList.toggle('off', !state.flashEnabled);
+    state.flashEnabled = flashToggleBtn.checked;
+    flashToggleBtn.addEventListener('change', () => {
+      state.flashEnabled = flashToggleBtn.checked;
     });
   }
 
@@ -900,15 +900,12 @@
     });
   }
 
-  // ── Count-In pill ──────────────────────────────────────────────────────
-  const countInPill = document.getElementById('count-in-pill');
-  if (countInPill) {
-    // start active (checked by default)
-    countInPill.classList.add('active');
-    countInPill.addEventListener('click', () => {
-      state.countInEnabled = !state.countInEnabled;
-      countInPill.classList.toggle('active', state.countInEnabled);
-      countInPill.setAttribute('aria-pressed', state.countInEnabled ? 'true' : 'false');
+  // ── Count-In toggle ────────────────────────────────────────────────────
+  const countInToggle = document.getElementById('count-in-toggle');
+  if (countInToggle) {
+    state.countInEnabled = countInToggle.checked;
+    countInToggle.addEventListener('change', () => {
+      state.countInEnabled = countInToggle.checked;
     });
   }
 
@@ -1029,7 +1026,7 @@
     switch (e.code) {
       case 'Space': {
         e.preventDefault();
-        const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+        const activeTab = document.querySelector('.bottom-nav-btn.active')?.dataset.tab;
         if (activeTab === 'rhythm') {
           document.getElementById('rb-play-btn')?.click();
         } else {
@@ -1068,10 +1065,11 @@
   /* ─────────────────────────────────────────────
      Tab Switching
   ───────────────────────────────────────────── */
-  document.querySelectorAll('.tab-btn').forEach(btn => {
+  document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+      if (btn.dataset.placeholder) return; // Train is a placeholder — do nothing
       const tab = btn.dataset.tab;
-      document.querySelectorAll('.tab-btn').forEach(b => {
+      document.querySelectorAll('.bottom-nav-btn').forEach(b => {
         b.classList.toggle('active', b === btn);
         b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
       });
@@ -1082,6 +1080,31 @@
       if (tab !== 'metronome' && state.isPlaying) stopPlayback();
     });
   });
+
+  /* ─────────────────────────────────────────────
+     Settings Drawer
+  ───────────────────────────────────────────── */
+  const settingsBtn      = document.getElementById('settings-btn');
+  const settingsDrawer   = document.getElementById('settings-drawer');
+  const settingsOverlay  = document.getElementById('settings-overlay');
+  const settingsCloseBtn = document.getElementById('settings-close-btn');
+
+  function openSettings() {
+    settingsDrawer?.classList.add('open');
+    settingsOverlay?.classList.add('open');
+    settingsDrawer?.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeSettings() {
+    settingsDrawer?.classList.remove('open');
+    settingsOverlay?.classList.remove('open');
+    settingsDrawer?.setAttribute('aria-hidden', 'true');
+    closeAllCtrlSels(null);
+  }
+
+  settingsBtn?.addEventListener('click', openSettings);
+  settingsCloseBtn?.addEventListener('click', closeSettings);
+  settingsOverlay?.addEventListener('click', closeSettings);
 
   /* ─────────────────────────────────────────────
      Settings — Save / Load (localStorage)
@@ -1112,7 +1135,7 @@
       gapProbability:    state.gapProbability,
       rhythmPatternIdx:  window.rhythm ? window.rhythm.getPatternIndex() : 0,
       rhythmVolume:      window.rhythm ? window.rhythm.getVolume() : 0.8,
-      activeTab:         document.querySelector('.tab-btn.active')?.dataset.tab || 'metronome',
+      activeTab:         document.querySelector('.bottom-nav-btn.active')?.dataset.tab || 'metronome',
     };
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(data)); } catch (_) {}
     // Toast
@@ -1153,12 +1176,15 @@
     // Flash
     if (data.flashEnabled === false) {
       state.flashEnabled = false;
-      document.getElementById('flash-toggle')?.classList.add('off');
+      const ft = document.getElementById('flash-toggle');
+      if (ft) ft.checked = false;
     }
 
     // Count-in
-    if (data.countInEnabled === false && state.countInEnabled) {
-      document.getElementById('count-in-pill')?.click();
+    if (data.countInEnabled === false) {
+      state.countInEnabled = false;
+      const ct = document.getElementById('count-in-toggle');
+      if (ct) ct.checked = false;
     }
 
     // Ramp
@@ -1202,7 +1228,7 @@
 
     // Active tab
     if (data.activeTab && data.activeTab !== 'metronome') {
-      document.querySelector(`.tab-btn[data-tab="${data.activeTab}"]`)?.click();
+      document.querySelector(`.bottom-nav-btn[data-tab="${data.activeTab}"]`)?.click();
     }
   }
 
