@@ -1084,6 +1084,7 @@
       rb.pattern = p;
       buildVisualizer();
     },
+    getPatternName: () => rb.pattern?.name ?? null,
     getBpm:    () => rb.bpm,
     getVolume: () => rb.volume,
     setVolume: (v) => {

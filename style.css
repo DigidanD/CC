@@ -1908,3 +1908,136 @@ body {
   .tuner-note   { font-size: 5rem; }
   .tuner-octave { font-size: 1.4rem; }
 }
+
+/* ══════════════════════════════
+   PRACTICE LOG TAB
+══════════════════════════════ */
+
+#tab-log {
+  padding: 1rem 1rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.log-stats-row {
+  display: flex;
+  justify-content: space-around;
+  background: var(--color-surface);
+  border-radius: var(--radius-card);
+  padding: 1rem 0.5rem;
+}
+
+.log-stat {
+  text-align: center;
+}
+
+.log-stat-val {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--color-accent);
+  line-height: 1;
+}
+
+.log-stat-label {
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+
+.log-chart-wrap {
+  background: var(--color-surface);
+  border-radius: var(--radius-card);
+  padding: 1rem;
+}
+
+.log-chart-wrap svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.log-section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.log-clear-btn {
+  background: none;
+  border: 1px solid #444;
+  color: var(--color-muted);
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.log-clear-btn:hover {
+  color: #e05555;
+  border-color: #e05555;
+}
+
+.log-sessions-wrap {
+  background: var(--color-surface);
+  border-radius: var(--radius-card);
+  padding: 1rem;
+}
+
+.log-session-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.log-session-row:last-child {
+  border-bottom: none;
+}
+
+.log-session-icon {
+  font-size: 1.2rem;
+  width: 1.5rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.log-session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.log-session-module {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+}
+
+.log-session-time {
+  font-size: 0.7rem;
+  color: var(--color-muted);
+}
+
+.log-empty {
+  text-align: center;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  padding: 1.5rem 0;
+}
