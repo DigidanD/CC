@@ -332,7 +332,7 @@
     clearInterval(state.timerID);
     state.timerID          = null;
     state.pendingFlashes   = [];
-    beatDots.forEach(d => d.classList.remove('active', 'active-accent'));
+    beatDots.forEach(d => d.classList.remove('active', 'accent'));
     updatePlayButton(false);
     updateRampProgress(0);
     setRampRunBtn(false);
@@ -428,8 +428,8 @@
         const next  = cycle[(cycle.indexOf(cur) + 1) % cycle.length];
         state.accentPattern[i] = next;
         dot.className = 'beat-dot beat-dot--' + next +
-          (dot.classList.contains('active')        ? ' active'        : '') +
-          (dot.classList.contains('active-accent') ? ' active-accent' : '');
+          (dot.classList.contains('active') ? ' active' : '') +
+          (dot.classList.contains('accent') ? ' accent' : '');
       });
 
       beatVisualizer.appendChild(dot);
@@ -438,17 +438,18 @@
   }
 
   function triggerDotFlash(dotIndex, isAccent) {
-    beatDots.forEach(d => d.classList.remove('active', 'active-accent'));
+    beatDots.forEach(d => d.classList.remove('active', 'accent'));
     const dot = beatDots[dotIndex];
     if (!dot) return;
-    if (state.flashEnabled) {
-      dot.classList.remove('active', 'active-accent');
-      void dot.offsetWidth;
-      dot.classList.add('active');
-      if (isAccent) dot.classList.add('active-accent');
-    }
+    // Beat-dot highlight always runs — it is the core visual beat indicator and
+    // must stay independent of the Screen Flash toggle. (Class is 'accent' to
+    // match the CSS rule `.beat-dot.active.accent`.)
+    void dot.offsetWidth;
+    dot.classList.add('active');
+    if (isAccent) dot.classList.add('accent');
     updateProgressBar((dotIndex + 1) / state.timeSigUpper);
 
+    // Only the full-screen edge flash is gated by the Screen Flash toggle.
     if (state.flashEnabled) {
       const flashEl = document.getElementById('screen-flash');
       if (flashEl) {
@@ -808,7 +809,10 @@
     ['note-sel', 'timesig-sel', 'sound-sel', 'accent-sel'].forEach(id => {
       if (id !== except) {
         const el = document.getElementById(id);
-        if (el) el.classList.remove('open');
+        if (!el) return;
+        el.classList.remove('open');
+        // keep aria in sync however the panel closed (selection / outside click)
+        el.querySelector('.ctrl-trigger')?.setAttribute('aria-expanded', 'false');
       }
     });
   }
@@ -816,10 +820,43 @@
   ['note-sel', 'timesig-sel', 'sound-sel', 'accent-sel'].forEach(selId => {
     const sel = document.getElementById(selId);
     if (!sel) return;
-    sel.querySelector('.ctrl-trigger').addEventListener('click', e => {
-      e.stopPropagation();
+    const trigger = sel.querySelector('.ctrl-trigger');
+    const panel   = sel.querySelector('.ctrl-sel-panel');
+    const opts    = () => Array.from(panel.querySelectorAll('.ctrl-opt'));
+    trigger.setAttribute('aria-expanded', 'false');
+
+    function openSel() {
       closeAllCtrlSels(selId);
-      sel.classList.toggle('open');
+      sel.classList.add('open');
+      trigger.setAttribute('aria-expanded', 'true');
+      (panel.querySelector('.ctrl-opt.active') || opts()[0])?.focus();
+    }
+    function closeSel(focusTrigger) {
+      sel.classList.remove('open');
+      trigger.setAttribute('aria-expanded', 'false');
+      if (focusTrigger) trigger.focus();
+    }
+
+    trigger.addEventListener('click', e => {
+      e.stopPropagation();
+      sel.classList.contains('open') ? closeSel(false) : openSel();
+    });
+    // <button> triggers already open on Enter/Space via the click above; add
+    // arrow-to-open and full in-panel keyboard navigation for the listbox.
+    trigger.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); openSel(); }
+    });
+    panel.addEventListener('keydown', e => {
+      const list = opts();
+      const i    = list.indexOf(document.activeElement);
+      switch (e.key) {
+        case 'ArrowDown': e.preventDefault(); (list[i + 1] || list[0]).focus(); break;
+        case 'ArrowUp':   e.preventDefault(); (list[i - 1] || list[list.length - 1]).focus(); break;
+        case 'Home':      e.preventDefault(); list[0]?.focus(); break;
+        case 'End':       e.preventDefault(); list[list.length - 1]?.focus(); break;
+        case 'Escape':    e.preventDefault(); closeSel(true); break;
+        case 'Tab':       closeSel(false); break;
+      }
     });
   });
 
@@ -1001,10 +1038,12 @@
   // Practice Timer
   toggleFeatPill('timer-pill', 'timer-controls',
     () => {
+      state.timerEnabled = true;
       const wrap = document.getElementById('header-timer-wrap');
       if (wrap) wrap.style.display = '';
     },
     () => {
+      state.timerEnabled = false;
       stopTimer();
       const wrap = document.getElementById('header-timer-wrap');
       if (wrap) wrap.style.display = 'none';
@@ -1019,13 +1058,25 @@
       } else {
         if (timerDurationSel) state.timerDuration = Number(timerDurationSel.value);
         startTimer();
+        // A practice timer with nothing playing is pointless — start the
+        // metronome so the countdown actually times a practice session.
+        if (!state.isPlaying) {
+          startPlayback();
+          updatePlayButton(true);
+          announce('Metronome started at ' + state.bpm + ' BPM');
+        }
       }
     });
   }
 
   // Keyboard shortcuts
   document.addEventListener('keydown', e => {
-    if (e.target !== document.body && e.target.tagName !== 'BODY') return;
+    // Only suppress shortcuts while actually typing in a field — NOT after a
+    // button click (which leaves focus on the button). Previously any non-body
+    // focus disabled Space, breaking it right after clicking START with a mouse.
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' ||
+              t.tagName === 'SELECT' || t.isContentEditable)) return;
     switch (e.code) {
       case 'Space': {
         e.preventDefault();
@@ -1051,10 +1102,12 @@
         setTimeout(() => tapBtn.classList.remove('tapped'), 120);
         break;
       case 'KeyG':
-        if (gapChk) { gapChk.checked = !gapChk.checked; gapChk.dispatchEvent(new Event('change')); }
+        // Toggle Gap Mode via its feature pill (old gapChk checkbox no longer exists)
+        document.getElementById('gap-pill')?.click();
         break;
       case 'KeyB':
-        if (barBreakChk) { barBreakChk.checked = !barBreakChk.checked; barBreakChk.dispatchEvent(new Event('change')); }
+        // Toggle Bar Break via its feature pill (old barBreakChk checkbox no longer exists)
+        document.getElementById('bar-break-pill')?.click();
         break;
     }
   });
@@ -1078,8 +1131,11 @@
       document.querySelectorAll('.tab-panel').forEach(p => {
         p.classList.toggle('active', p.id === 'tab-' + tab);
       });
-      if (tab === 'metronome' && window.rhythm?.isPlaying()) window.rhythm.stop();
+      // Stop whichever audio module isn't the tab we just switched to. This
+      // matters for the Tuner tab: a still-playing metronome/rhythm would leak
+      // into the microphone. (The Tuner stops itself via its own tab handler.)
       if (tab !== 'metronome' && state.isPlaying) stopPlayback();
+      if (tab !== 'rhythm' && window.rhythm?.isPlaying()) window.rhythm.stop();
     });
   });
 
@@ -1095,8 +1151,9 @@
       timeSigLower:      state.timeSigLower,
       subdivision:       state.subdivision,
       sound:             state.soundType,
-      volume:            state.volume,
-      accentFirst:       state.accentFirst,
+      volume:            state.masterVolume,
+      accentPreset:      state.accentPreset,
+      accentPattern:     state.accentPattern.slice(),
       countInEnabled:    state.countInEnabled,
       flashEnabled:      state.flashEnabled,
       rampEnabled:       state.rampEnabled,
@@ -1105,8 +1162,7 @@
       rampMeasures:      state.rampMeasures,
       barBreakEnabled:   state.barBreakEnabled,
       barBreakEvery:     state.barBreakEvery,
-      barBreakDuration:  state.barBreakDuration,
-      timerEnabled:      state.timerEnabled,
+      timerEnabled:      document.getElementById('timer-pill')?.classList.contains('active') || false,
       timerDuration:     state.timerDuration,
       gapMode:           state.gapMode,
       gapProbability:    state.gapProbability,
@@ -1138,9 +1194,9 @@
       if (tsBtn) tsBtn.click();
     }
 
-    // Subdivision
+    // Subdivision (option attribute is data-subdivision, not data-note)
     if (data.subdivision) {
-      const subBtn = document.querySelector(`[data-note="${data.subdivision}"]`);
+      const subBtn = document.querySelector(`[data-subdivision="${data.subdivision}"]`);
       if (subBtn) subBtn.click();
     }
 
@@ -1148,6 +1204,24 @@
     if (data.sound) {
       const sndBtn = document.querySelector(`[data-sound="${data.sound}"]`);
       if (sndBtn) sndBtn.click();
+    }
+
+    // Master volume
+    if (data.volume != null) {
+      const vEl = document.getElementById('master-volume');
+      if (vEl) { vEl.value = Math.round(data.volume * 100); vEl.dispatchEvent(new Event('input')); }
+    }
+
+    // Accent — restore preset first, then override with the saved per-beat
+    // pattern so custom dot edits survive the round-trip.
+    if (data.accentPreset) {
+      const accBtn = document.querySelector(`[data-accent="${data.accentPreset}"]`);
+      if (accBtn) accBtn.click();
+    }
+    if (Array.isArray(data.accentPattern) && data.accentPattern.length) {
+      state.accentPattern = data.accentPattern.slice(0, state.timeSigUpper);
+      while (state.accentPattern.length < state.timeSigUpper) state.accentPattern.push('normal');
+      rebuildBeatDots();
     }
 
     // Flash
@@ -1217,6 +1291,9 @@
 
   // Expose public API for rhythm.js
   window.getSharedAudioCtx = getAudioCtx;
+  // Shared master output bus — lets rhythm.js route through the same masterGain
+  // so the Master Volume slider governs every module (not just the metronome).
+  window.getSharedDest = getDest;
   window.metronome = {
     setBpm:       setBpm,
     tap:          onTapTempo,

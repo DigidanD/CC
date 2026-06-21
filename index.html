@@ -3,8 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Metronome</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231a1a2e'/><text x='16' y='24' font-size='22' text-anchor='middle' fill='%23e88200'>♩</text></svg>">
+  <title>Pulse — The musician's toolbox</title>
+  <meta name="theme-color" content="#0b0b10" />
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -20,7 +26,22 @@
 
     <!-- Header -->
     <header class="app-header">
-      <h1 class="app-title">&#9833; METRONOME</h1>
+      <h1 class="app-title">
+        <svg class="brand-mark" viewBox="0 0 120 100" aria-hidden="true">
+          <g fill="#f09010">
+            <rect x="4"   y="42" width="8" height="16" rx="4"/>
+            <rect x="17"  y="36" width="8" height="28" rx="4"/>
+            <rect x="30"  y="29" width="8" height="42" rx="4"/>
+            <rect x="43"  y="20" width="8" height="60" rx="4"/>
+            <rect x="69"  y="20" width="8" height="60" rx="4"/>
+            <rect x="82"  y="29" width="8" height="42" rx="4"/>
+            <rect x="95"  y="36" width="8" height="28" rx="4"/>
+            <rect x="108" y="42" width="8" height="16" rx="4"/>
+          </g>
+          <rect x="56" y="9" width="8" height="82" rx="4" fill="#f76a6a"/>
+        </svg>
+        <span>PULSE</span>
+      </h1>
       <div class="header-timer" id="header-timer-wrap" style="display:none">
         <span id="timer-display" class="timer-time">--:--</span>
         <span class="timer-label">remaining</span>
@@ -30,7 +51,7 @@
     <!-- Tab Navigation -->
     <nav class="tab-nav" role="tablist">
       <button class="tab-btn active" data-tab="metronome" role="tab">Metronome</button>
-      <button class="tab-btn" data-tab="rhythm" role="tab">Rhythm Buddy</button>
+      <button class="tab-btn" data-tab="rhythm" role="tab">Groove</button>
       <button class="tab-btn" data-tab="tuner" role="tab">Tuner</button>
       <button class="tab-btn" data-tab="log" role="tab">Log</button>
     </nav>
@@ -178,8 +199,8 @@
 
         <div class="feat-pills">
           <button class="feat-pill" id="ramp-pill">Tempo Ramp</button>
-          <button class="feat-pill" id="gap-pill">Gap Mode <span class="feat-pill-badge">Pro</span></button>
-          <button class="feat-pill" id="bar-break-pill">Bar Break <span class="feat-pill-badge">Pro</span></button>
+          <button class="feat-pill" id="gap-pill">Gap Mode</button>
+          <button class="feat-pill" id="bar-break-pill">Bar Break</button>
           <button class="feat-pill" id="timer-pill">Timer</button>
         </div>
 
@@ -222,7 +243,8 @@
             <span class="slider-value-label" id="gap-density-label">25%</span>
           </div>
           <input type="range" id="gap-density" class="bpm-slider"
-                 min="0" max="75" value="25" style="--slider-pct:33%" />
+                 min="0" max="75" value="25" style="--slider-pct:33%"
+                 aria-label="Gap mode density" />
           <div class="bpm-range-labels"><span>Sparse</span><span>Dense</span></div>
         </div>
 
@@ -231,7 +253,7 @@
           <p class="section-desc">Full bars go silent — keep the beat yourself.</p>
           <div class="slider-row">
             <span class="control-label">Silent every</span>
-            <select id="bar-break-every" class="select-field">
+            <select id="bar-break-every" class="select-field" aria-label="Silent every N bars">
               <option value="2">2 bars</option>
               <option value="4" selected>4 bars</option>
               <option value="8">8 bars</option>
@@ -243,7 +265,7 @@
         <!-- Timer panel -->
         <div class="feat-panel" id="timer-controls">
           <div class="timer-row">
-            <select id="timer-duration" class="select-field">
+            <select id="timer-duration" class="select-field" aria-label="Practice timer duration">
               <option value="5">5 min</option>
               <option value="10" selected>10 min</option>
               <option value="15">15 min</option>
@@ -280,22 +302,6 @@
         </div>
       </div>
 
-      <!-- Volume + Play -->
-      <div class="vol-row">
-        <span class="vol-icon">&#128266;</span>
-        <input type="range" id="rb-volume" class="bpm-slider vol-slider"
-               min="0" max="100" value="80" style="--slider-pct:80%" />
-        <span class="volume-value" id="rb-volume-label">80%</span>
-      </div>
-      <section class="action-section">
-        <button class="btn-tap" id="rb-tap-btn" aria-label="Tap tempo">TAP</button>
-        <button class="btn-play" id="rb-play-btn" aria-label="Start rhythm">
-          <span class="play-icon">&#9654;</span>
-          <span class="pause-icon" style="display:none">&#9646;&#9646;</span>
-          <span class="btn-label">START</span>
-        </button>
-      </section>
-
       <!-- Beat Visualizer -->
       <div class="rb-vis-wrapper">
         <div class="rb-step-track" id="rb-step-track"></div>
@@ -305,14 +311,12 @@
         </div>
       </div>
 
-      <!-- Search + Categories -->
+      <!-- Pattern picker (the primary task on this tab) -->
       <div class="search-row">
         <input type="search" id="pattern-search" class="pattern-search-input"
                placeholder="Search patterns…" aria-label="Search patterns" />
       </div>
       <div class="cat-filter" id="cat-filter"></div>
-
-      <!-- Pattern Grid -->
       <div class="pattern-grid" id="pattern-grid"></div>
       <div class="empty-state" id="pattern-empty-state" style="display:none">No patterns found</div>
 
@@ -333,12 +337,32 @@
           <div class="ghost-inline">
             <span class="control-label">Ghosts</span>
             <input type="range" id="ghost-probability" class="bpm-slider vol-slider"
-                   min="0" max="50" value="13" style="--slider-pct:26%" />
+                   min="0" max="50" value="13" style="--slider-pct:26%"
+                   aria-label="Ghost note probability" />
             <span class="slider-value-label" id="ghost-prob-label">13%</span>
           </div>
         </div>
 
       </div>
+
+      <!-- Volume -->
+      <div class="vol-row">
+        <span class="vol-icon">&#128266;</span>
+        <input type="range" id="rb-volume" class="bpm-slider vol-slider"
+               min="0" max="100" value="80" style="--slider-pct:80%"
+               aria-label="Rhythm volume" />
+        <span class="volume-value" id="rb-volume-label">80%</span>
+      </div>
+
+      <!-- Transport (sticky — pins to viewport bottom) -->
+      <section class="action-section">
+        <button class="btn-tap" id="rb-tap-btn" aria-label="Tap tempo">TAP</button>
+        <button class="btn-play" id="rb-play-btn" aria-label="Start rhythm">
+          <span class="play-icon">&#9654;</span>
+          <span class="pause-icon" style="display:none">&#9646;&#9646;</span>
+          <span class="btn-label">START</span>
+        </button>
+      </section>
 
     </div><!-- /#tab-rhythm -->
 
@@ -383,6 +407,11 @@
           <span class="btn-label">START</span>
         </button>
       </section>
+
+      <!-- Inline status / hint (mic permission, errors, first-run guidance) -->
+      <div class="tuner-status" id="tuner-status" aria-live="polite">
+        Tap START and play a single note.
+      </div>
 
 
     </div><!-- /#tab-tuner -->

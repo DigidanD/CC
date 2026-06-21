@@ -20,6 +20,8 @@
 
   let current = null;   // { startTime, module, bpmSamples[], pattern }
 
+  const MIN_SESSION_MS = 10000;  // ignore sub-10s bursts (e.g. quick tuner checks)
+
   function activeModule() {
     if (window.metronome?.isPlaying())                                       return 'metronome';
     if (window.rhythm?.isPlaying())                                          return 'rhythm';
@@ -35,26 +37,37 @@
 
   function endCurrent() {
     if (!current) return;
-    const samples = current.bpmSamples;
+    const sess = current;
+    current = null;   // clear up-front so a throw below can't wedge tracking
+
+    const durationMs = Date.now() - sess.startTime;
+    if (durationMs < MIN_SESSION_MS) return;   // too short — discard, don't log
+
+    const samples = sess.bpmSamples;
     const bpmAvg  = samples.length
       ? Math.round(samples.reduce((a, b) => a + b, 0) / samples.length)
       : null;
 
-    const sessions = loadSessions();
-    sessions.push({
-      startTime: current.startTime,
-      endTime:   Date.now(),
-      module:    current.module,
-      bpm:       bpmAvg,
-      pattern:   current.pattern,
-    });
-    saveSessions(sessions);
-    current = null;
+    try {
+      const sessions = loadSessions();
+      sessions.push({
+        startTime: sess.startTime,
+        endTime:   Date.now(),
+        module:    sess.module,
+        bpm:       bpmAvg,
+        pattern:   sess.pattern,
+      });
+      saveSessions(sessions);
+    } catch (_) { /* localStorage full/blocked (e.g. Safari private) — drop silently */ }
     renderLog();
   }
 
   setInterval(function poll() {
     const mod = activeModule();
+
+    // Close the running session if the active module stopped OR switched
+    // (e.g. straight from metronome to rhythm) — don't merge two modules.
+    if (current && mod !== current.module) endCurrent();
 
     if (mod && !current) {
       current = {
@@ -63,8 +76,6 @@
         bpmSamples: [],
         pattern:    mod === 'rhythm' ? (window.rhythm?.getPatternName() ?? null) : null,
       };
-    } else if (!mod && current) {
-      endCurrent();
     } else if (current) {
       const bpm = sampleBpm(current.module);
       if (bpm) current.bpmSamples.push(bpm);
@@ -114,23 +125,30 @@
 
   /* ─── SVG Bar Chart ─── */
 
+  // Daily bar chart — one bar per day (last 7). EVERY bar is labelled with that
+  // day's practice duration in minutes (muted "0m" for rest days).
   function buildChart(days) {
-    const W = 280, H = 80, BAR_W = 28, GAP = 12;
+    const W = 300, H = 98, BAR_W = 30, GAP = 12;
+    const span  = days.length * (BAR_W + GAP) - GAP;
+    const padX  = Math.max(0, (W - span) / 2);
+    const baseY = H - 18;                 // baseline; day labels sit below
     const maxMins = Math.max(...days.map(d => d.mins), 1);
     let bars = '';
     days.forEach((d, i) => {
-      const x      = i * (BAR_W + GAP) + GAP / 2;
-      const barH   = Math.max(2, (d.mins / maxMins) * (H - 20));
-      const y      = H - 18 - barH;
+      const x      = padX + i * (BAR_W + GAP);
       const active = d.mins > 0;
-      bars += `<rect x="${x}" y="${y}" width="${BAR_W}" height="${barH}"
-        rx="4" fill="${active ? '#e88200' : '#2a2a3e'}"/>
-        <text x="${x + BAR_W / 2}" y="${H - 4}" text-anchor="middle"
-          font-size="9" fill="#888">${d.label}</text>`;
-      if (active) {
-        bars += `<text x="${x + BAR_W / 2}" y="${y - 3}" text-anchor="middle"
-          font-size="8" fill="#e88200">${Math.round(d.mins)}m</text>`;
-      }
+      const mins   = Math.round(d.mins);
+      const barH   = active ? Math.max(6, (d.mins / maxMins) * (baseY - 18)) : 3;
+      const y      = baseY - barH;
+      bars +=
+        `<rect x="${x}" y="${y}" width="${BAR_W}" height="${barH}" rx="4"` +
+        ` fill="${active ? 'var(--accent)' : 'var(--border)'}"/>` +
+        // minutes value above every bar
+        `<text x="${x + BAR_W / 2}" y="${y - 5}" text-anchor="middle" font-size="9"` +
+        ` font-weight="700" fill="${active ? 'var(--accent)' : 'var(--text-muted)'}">${mins}m</text>` +
+        // day label below
+        `<text x="${x + BAR_W / 2}" y="${H - 4}" text-anchor="middle" font-size="9"` +
+        ` fill="var(--text-secondary)">${d.label}</text>`;
     });
     return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${bars}</svg>`;
   }
@@ -159,6 +177,14 @@
 
   function moduleIcon(mod) {
     return mod === 'metronome' ? '♩' : mod === 'rhythm' ? '♪' : '♫';
+  }
+
+  // Display name — the 'rhythm' module is branded "Groove"
+  function moduleName(mod) {
+    return mod === 'rhythm' ? 'Groove'
+         : mod === 'metronome' ? 'Metronome'
+         : mod === 'tuner' ? 'Tuner'
+         : mod;
   }
 
   function renderLog() {
@@ -200,12 +226,12 @@
           ${sessions.length ? `<button class="log-clear-btn" id="log-clear-btn">Clear All</button>` : ''}
         </div>
         ${recent.length === 0
-          ? '<div class="log-empty">No sessions yet — start playing!</div>'
+          ? '<div class="log-empty">Your practice starts here. Press play on any tool to log your first session.</div>'
           : recent.map(s => `
             <div class="log-session-row">
               <span class="log-session-icon">${moduleIcon(s.module)}</span>
               <div class="log-session-info">
-                <span class="log-session-module">${s.module}${s.pattern ? ' · ' + s.pattern : ''}${s.bpm ? ' · ' + s.bpm + ' BPM' : ''}</span>
+                <span class="log-session-module">${moduleName(s.module)}${s.pattern ? ' · ' + s.pattern : ''}${s.bpm ? ' · ' + s.bpm + ' BPM' : ''}</span>
                 <span class="log-session-time">${fmtDate(s.startTime)} ${fmtTime(s.startTime)} · ${fmtDuration(s.endTime - s.startTime)}</span>
               </div>
             </div>`).join('')

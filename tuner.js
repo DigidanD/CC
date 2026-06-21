@@ -49,7 +49,13 @@
      DOM refs
   ───────────────────────────────────────────── */
   let noteEl, octaveEl, freqEl, centsEl, lockEl,
-      startBtn, needleEl, gaugeEl, displayEl;
+      startBtn, needleEl, gaugeEl, displayEl, statusEl;
+
+  function setStatus(msg, isError) {
+    if (!statusEl) return;
+    statusEl.textContent = msg || '';
+    statusEl.classList.toggle('error', !!isError);
+  }
 
   /* ─────────────────────────────────────────────
      YIN Pitch Detection
@@ -283,7 +289,17 @@
   async function startTuner() {
     if (active) { stopTuner(); return; }
 
+    // Permission-pending state — give immediate feedback while the browser
+    // shows its mic prompt (the request can block for a while).
+    startBtn.disabled = true;
+    startBtn.textContent = 'Requesting mic…';
+    setStatus('Allow microphone access to tune.', false);
+
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new DOMException('Microphone API not available in this browser.', 'NotSupportedError');
+      }
+
       audioCtx = window.getSharedAudioCtx
         ? window.getSharedAudioCtx()
         : new (window.AudioContext || window.webkitAudioContext)();
@@ -323,13 +339,26 @@
       freqHistory.length = 0;
       lastTs             = performance.now();
 
+      startBtn.disabled = false;
       startBtn.textContent = 'Stop Tuner';
       startBtn.classList.add('running');
+      setStatus('Listening… play a single note.', false);
 
       rafId = requestAnimationFrame(rafLoop);
     } catch (err) {
-      console.error('[Tuner] startTuner error:', err);
-      alert('Could not start tuner:\n' + err.message);
+      // Friendly, inline, recoverable — no blocking alert / raw technical text.
+      active = false;
+      if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+      startBtn.disabled = false;
+      startBtn.textContent = 'Start Tuner';
+      startBtn.classList.remove('running');
+      const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+      const noDevice = err && (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError');
+      const msg = denied   ? 'Microphone blocked. Allow mic access in your browser, then tap START to retry.'
+                : noDevice ? 'No microphone found. Connect one and tap START to retry.'
+                :            'Couldn’t start the tuner. Tap START to try again.';
+      setStatus(msg, true);
+      console.warn('[Tuner] startTuner failed:', err);
     }
   }
 
@@ -339,8 +368,10 @@
     if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
     analyser = null;
 
+    startBtn.disabled = false;
     startBtn.textContent = 'Start Tuner';
     startBtn.classList.remove('running');
+    setStatus('Tap START and play a single note.', false);
 
     isLocked   = false;
     lastDet    = null;
@@ -357,7 +388,6 @@
     displayEl.classList.remove('locked');
     centsEl.classList.remove('locked');
     needleEl.classList.remove('locked');
-    dbg('stopped');
   }
 
   /* ─────────────────────────────────────────────
@@ -373,6 +403,7 @@
     needleEl  = document.getElementById('tuner-needle');
     gaugeEl   = document.getElementById('tuner-gauge');
     displayEl = document.getElementById('tuner-display');
+    statusEl  = document.getElementById('tuner-status');
     if (!startBtn) {
       console.error('[Tuner] tuner-start-btn not found in DOM');
       return;

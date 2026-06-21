@@ -1,19 +1,63 @@
 /* ── Design Tokens ── */
 :root {
-  --bg-app:           #0e0e14;
-  --bg-card:          #17171f;
-  --bg-card-raised:   #1e1e2a;
+  /* Backgrounds — widened ramp so elevation reads by tone, not just borders */
+  --bg-app:           #0b0b10;
+  --bg-card:          #16161e;
+  --bg-card-raised:   #232331;
   --border:           #2a2a3a;
+
+  /* Accent — "you / active / control" */
   --accent:           #f09010;
   --accent-glow:      rgba(255, 160, 30, 0.5);
   --accent-dim:       rgba(240, 144, 16, 0.14);
+
+  /* Beat-1 emphasis (the downbeat) — deliberate pair with accent */
   --beat1-color:      #f76a6a;
   --beat1-glow:       rgba(247, 106, 106, 0.45);
-  --color-danger:     #e05050;
+
+  /* Functional palette — "the instrument talking back" */
+  --color-danger:     #e8584f;
+  --color-danger-dim: rgba(232, 88, 79, 0.12);
   --color-success:    #50c878;
+  --color-success-dim: rgba(80, 200, 120, 0.12);
+  --color-warning:    #f0c020;
+  --color-focus:      #4da6ff;   /* keyboard/system — the one cool hue, never content */
+
+  /* Text — muted/secondary raised to clear WCAG AA at small sizes */
   --text-primary:     #f0f0f8;
-  --text-secondary:   #8888aa;
-  --text-muted:       #666688;
+  --text-secondary:   #9a9ac0;
+  --text-muted:       #8a8aa8;
+
+  /* Type scale — modular ≈1.2, one display size shared across tab heroes */
+  --fs-display:       5.5rem;
+  --fs-2xl:           2rem;
+  --fs-xl:            1.5rem;
+  --fs-lg:            1.125rem;
+  --fs-md:            1rem;
+  --fs-sm:            0.875rem;
+  --fs-xs:            0.75rem;
+  --fs-2xs:           0.6875rem;   /* floor for running micro-labels */
+  --fs-3xs:           0.625rem;    /* badges only, never running text */
+
+  /* Weights — 4 only */
+  --fw-regular:       400;
+  --fw-medium:        600;
+  --fw-bold:          700;
+  --fw-black:         800;
+
+  --tracking-tight:   -0.02em;
+  --tracking-wide:    1.5px;
+
+  /* Spacing — 4px rem grid */
+  --space-1:          0.25rem;
+  --space-2:          0.5rem;
+  --space-3:          0.75rem;
+  --space-4:          1rem;
+  --space-5:          1.25rem;
+  --space-6:          1.5rem;
+  --space-8:          2rem;
+
+  --radius-xs:        4px;
   --radius-sm:        8px;
   --radius-md:        14px;
   --radius-lg:        20px;
@@ -28,9 +72,16 @@
   padding: 0;
 }
 
-/* ── Global Focus ── */
+/* Form controls don't inherit font by default — force them to use Inter */
+input, button, select, textarea {
+  font-family: inherit;
+  font-feature-settings: inherit;
+  font-variant-numeric: inherit;
+}
+
+/* ── Global Focus ── (cool ring — never collides with the orange "selected" state) */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--color-focus);
   outline-offset: 3px;
   border-radius: var(--radius-sm);
 }
@@ -122,7 +173,11 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  /* tabular figures everywhere — this is a number-driven app (BPM, Hz, cents) */
+  font-feature-settings: 'tnum' 1, 'cv11' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  line-height: 1.5;
   color: var(--text-primary);
   padding: 24px 16px 60px;
 }
@@ -166,12 +221,27 @@ body {
 }
 
 .app-title {
-  font-size: 1.6rem;
-  font-weight: 700;
-  letter-spacing: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-black);
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--accent);
-  text-shadow: 0 0 24px var(--accent-glow), 0 0 48px rgba(255,146,0,0.2);
+}
+
+/* The wordmark glow lives on the text only, not the mark (logo stays clean) */
+.app-title span {
+  text-shadow: 0 0 24px var(--accent-glow), 0 0 48px rgba(255, 146, 0, 0.2);
+  /* optical balance for the wide tracking — pull the trailing space in */
+  margin-right: -0.18em;
+}
+
+.brand-mark {
+  height: 1.05em;
+  width: auto;
+  flex-shrink: 0;
 }
 
 /* ── Practice Timer in Header ── */
@@ -235,7 +305,6 @@ body {
 .tab-btn.active {
   background: var(--accent);
   color: #fff;
-  box-shadow: 0 0 14px var(--accent-glow);
 }
 
 /* ── Tab Panels ── */
@@ -311,8 +380,8 @@ body {
 }
 
 .beat-dot {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--bg-card-raised);
   border: 2px solid var(--border);
@@ -378,8 +447,8 @@ body {
 .count-in-display.active { opacity: 1; }
 
 .count-in-num {
-  font-size: 5rem;
-  font-weight: 900;
+  font-size: var(--fs-display);
+  font-weight: var(--fw-black);
   color: var(--accent);
   text-shadow: 0 0 30px var(--accent-glow), 0 0 70px rgba(255,146,0,0.3);
   line-height: 1;
@@ -431,8 +500,8 @@ body {
 }
 
 .bpm-nudge--sm {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   font-size: 1.1rem;
 }
 
@@ -451,16 +520,16 @@ body {
 }
 
 .bpm-number {
-  width: 120px;
+  width: 180px;
   background: transparent;
   border: none;
   color: var(--text-primary);
-  font-size: 4.8rem;
-  font-weight: 700;
+  font-size: var(--fs-display);
+  font-weight: var(--fw-bold);
   text-align: center;
-  letter-spacing: -2px;
+  letter-spacing: var(--tracking-tight);
   line-height: 1;
-  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 40px rgba(240, 144, 16, 0.22);  /* faint warm halo — presence parity */
   -moz-appearance: textfield;
   outline: none;
 }
@@ -508,7 +577,6 @@ body {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
-  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .bpm-preset:active { transform: scale(0.94); }
@@ -614,7 +682,6 @@ body {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
-  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 /* ── Compact Dropdown Selector Bar ── */
@@ -636,7 +703,7 @@ body {
   font-size: 0.95rem;
 }
 .ctrl-bar--4 .ctrl-trigger-label {
-  font-size: 0.5rem;
+  font-size: var(--fs-2xs);
   letter-spacing: 1.5px;
 }
 
@@ -787,11 +854,10 @@ body {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
-  box-shadow: 0 0 14px var(--accent-glow);
 }
 
 .feat-pill-badge {
-  font-size: 0.55rem;
+  font-size: var(--fs-3xs);
   padding: 1px 5px;
   background: rgba(255,255,255,0.15);
   border-radius: var(--radius-pill);
@@ -1288,6 +1354,17 @@ body {
   display: flex;
   gap: 14px;
   align-items: stretch;
+  /* Floating transport — START/TAP pin to the viewport bottom while scrolling so
+     the primary action is always one thumb-reach away on every tab. */
+  position: sticky;
+  bottom: 10px;
+  z-index: 50;
+  background: rgba(11, 11, 16, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 8px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
 }
 
 .btn-tap {
@@ -1358,7 +1435,7 @@ body {
 
 .btn-play.running {
   background: #7a3d00;
-  box-shadow: 0 0 20px rgba(232,130,0,0.3);
+  box-shadow: 0 0 20px rgba(240,144,16,0.35);
   animation: pulse-ring 1s ease-out infinite;
 }
 
@@ -1387,7 +1464,7 @@ body {
 }
 
 .play-timer-label {
-  font-size: 0.55rem;
+  font-size: var(--fs-3xs);
   letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -1496,7 +1573,7 @@ body {
 }
 
 .rb-instr-label {
-  font-size: 0.58rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -1584,8 +1661,8 @@ body {
 .cat-btn.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #000;
-  font-weight: 700;
+  color: #fff;
+  font-weight: var(--fw-bold);
 }
 
 /* ── Pattern Grid ── 2-column ── */
@@ -1710,10 +1787,9 @@ body {
 @media (max-width: 420px) {
   body { padding: 16px 12px 40px; }
   .app-title { font-size: 1.3rem; letter-spacing: 3px; }
-  .beat-dot { width: 32px; height: 32px; }
-  .bpm-number { font-size: 3.2rem; }
+  .beat-dot { width: 40px; height: 40px; }
   .bpm-nudge { width: 48px; height: 48px; font-size: 1.4rem; }
-  .bpm-nudge--sm { width: 32px; height: 32px; }
+  .bpm-nudge--sm { width: 40px; height: 40px; }
   .seg-btn { font-size: 0.82rem; padding: 8px 4px; }
   .action-section { flex-direction: column; }
   .btn-tap { width: 100%; padding: 18px; min-height: 64px; }
@@ -1743,15 +1819,14 @@ body {
 }
 
 .tuner-note {
-  font-size: 7rem;
-  font-weight: 700;
+  font-size: var(--fs-display);
+  font-weight: var(--fw-bold);
   line-height: 1;
-  letter-spacing: -3px;
+  letter-spacing: var(--tracking-tight);
   color: var(--text-primary);
   min-width: 2ch;
   text-align: center;
   transition: color 0.3s;
-  font-variant-numeric: tabular-nums;
 }
 
 .tuner-octave {
@@ -1904,8 +1979,22 @@ body {
   transform: translateY(0);
 }
 
+.tuner-status {
+  text-align: center;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  padding: 0 12px;
+  min-height: 1.2em;
+}
+.tuner-status.error {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
 @media (max-width: 420px) {
-  .tuner-note   { font-size: 5rem; }
+  /* Shrink the shared hero numeral together so all tabs stay in lockstep */
+  :root { --fs-display: 4.25rem; }
   .tuner-octave { font-size: 1.4rem; }
 }
 
@@ -1913,7 +2002,9 @@ body {
    PRACTICE LOG TAB
 ══════════════════════════════ */
 
-#tab-log {
+/* Scope to .active — a bare #tab-log rule outranks `.tab-panel{display:none}`
+   (ID > class) and would keep the Log visible under every other tab. */
+#tab-log.active {
   padding: 1rem 1rem 2rem;
   display: flex;
   flex-direction: column;
@@ -1923,8 +2014,8 @@ body {
 .log-stats-row {
   display: flex;
   justify-content: space-around;
-  background: var(--color-surface);
-  border-radius: var(--radius-card);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
   padding: 1rem 0.5rem;
 }
 
@@ -1935,21 +2026,21 @@ body {
 .log-stat-val {
   font-size: 2rem;
   font-weight: 800;
-  color: var(--color-accent);
+  color: var(--accent);
   line-height: 1;
 }
 
 .log-stat-label {
   font-size: 0.7rem;
-  color: var(--color-muted);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-top: 4px;
 }
 
 .log-chart-wrap {
-  background: var(--color-surface);
-  border-radius: var(--radius-card);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
   padding: 1rem;
 }
 
@@ -1962,7 +2053,7 @@ body {
 .log-section-title {
   font-size: 0.7rem;
   font-weight: 700;
-  color: var(--color-muted);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1.5px;
   margin-bottom: 0.75rem;
@@ -1974,7 +2065,7 @@ body {
 .log-clear-btn {
   background: none;
   border: 1px solid #444;
-  color: var(--color-muted);
+  color: var(--text-secondary);
   font-size: 0.65rem;
   padding: 2px 8px;
   border-radius: 4px;
@@ -1989,8 +2080,8 @@ body {
 }
 
 .log-sessions-wrap {
-  background: var(--color-surface);
-  border-radius: var(--radius-card);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
   padding: 1rem;
 }
 
@@ -2023,7 +2114,7 @@ body {
 .log-session-module {
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2032,12 +2123,12 @@ body {
 
 .log-session-time {
   font-size: 0.7rem;
-  color: var(--color-muted);
+  color: var(--text-secondary);
 }
 
 .log-empty {
   text-align: center;
-  color: var(--color-muted);
+  color: var(--text-secondary);
   font-size: 0.85rem;
   padding: 1.5rem 0;
 }

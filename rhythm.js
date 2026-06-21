@@ -321,10 +321,65 @@
     return rbNoiseBuffer;
   }
 
+  // Shared master bus — route drums through the metronome's masterGain so the
+  // Master Volume slider governs them too. Falls back to raw destination.
+  function getDest() {
+    return window.getSharedDest ? window.getSharedDest() : getCtx().destination;
+  }
+
+  /* ─────────────────────────────────────────────
+     Acoustic Drum Samples (with synth fallback)
+     Real recorded kit from the JavaScript30 drum kit (jsDelivr CDN). Each hit
+     tries the decoded sample first; if samples haven't loaded (offline / slow /
+     blocked), every play* function falls back to its original synthesis so the
+     app never goes silent.
+  ───────────────────────────────────────────── */
+  const SAMPLE_BASE  = 'https://cdn.jsdelivr.net/gh/wesbos/JavaScript30@master/01%20-%20JavaScript%20Drum%20Kit/sounds/';
+  const SAMPLE_FILES = {
+    kick:    'kick.wav',
+    snare:   'snare.wav',
+    hihat:   'hihat.wav',
+    openhat: 'openhat.wav',
+    ride:    'ride.wav',
+    tom:     'tom.wav',
+  };
+  const sampleBuffers = Object.create(null);
+  let   samplesLoading = false;
+
+  function loadSamples() {
+    if (samplesLoading) return;
+    samplesLoading = true;
+    const ctx = getCtx();
+    Object.entries(SAMPLE_FILES).forEach(([name, file]) => {
+      fetch(SAMPLE_BASE + file)
+        .then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
+        .then(buf => new Promise((res, rej) => ctx.decodeAudioData(buf, res, rej)))
+        .then(decoded => { sampleBuffers[name] = decoded; })
+        .catch(() => { /* leave unset → that drum uses synth fallback */ });
+    });
+  }
+
+  // Play a decoded sample. Returns false if not yet available (caller then
+  // falls back to synthesis). `rate` lets one tom sample cover hi/mid/lo.
+  function playSample(name, time, vol, rate) {
+    const buf = sampleBuffers[name];
+    if (!buf) return false;
+    const ctx = getCtx();
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    if (rate) src.playbackRate.value = rate;
+    const g = ctx.createGain();
+    g.gain.value = Math.max(0, vol);
+    src.connect(g); g.connect(getDest());
+    src.start(time);
+    return true;
+  }
+
   /* ─────────────────────────────────────────────
      Drum Sounds
   ───────────────────────────────────────────── */
   function playKick(ctx, time, vol) {
+    if (playSample('kick', time, vol)) return;
     // Body: sine sweep for deep thump
     const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -332,7 +387,7 @@
     osc.frequency.exponentialRampToValueAtTime(38, time + 0.15);
     gain.gain.setValueAtTime(vol * 0.72, time);
     gain.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
-    osc.connect(gain); gain.connect(ctx.destination);
+    osc.connect(gain); gain.connect(getDest());
     osc.start(time); osc.stop(time + 0.36);
 
     // Click transient: beater attack
@@ -345,11 +400,12 @@
     const cGain = ctx.createGain();
     cGain.gain.setValueAtTime(vol * 0.5, time);
     cGain.gain.exponentialRampToValueAtTime(0.001, time + 0.013);
-    click.connect(bpf); bpf.connect(cGain); cGain.connect(ctx.destination);
+    click.connect(bpf); bpf.connect(cGain); cGain.connect(getDest());
     click.start(time); click.stop(time + 0.016);
   }
 
   function playSnare(ctx, time, vol) {
+    if (playSample('snare', time, vol * 0.9)) return;
     // Body oscillator
     const body     = ctx.createOscillator();
     body.type      = 'triangle';
@@ -358,7 +414,7 @@
     body.frequency.exponentialRampToValueAtTime(130, time + 0.05);
     bodyGain.gain.setValueAtTime(vol * 0.75, time);
     bodyGain.gain.exponentialRampToValueAtTime(0.001, time + 0.065);
-    body.connect(bodyGain); bodyGain.connect(ctx.destination);
+    body.connect(bodyGain); bodyGain.connect(getDest());
     body.start(time); body.stop(time + 0.07);
 
     // Snare rattle (bandpass noise)
@@ -371,7 +427,7 @@
     const nGain = ctx.createGain();
     nGain.gain.setValueAtTime(vol * 1.55, time);
     nGain.gain.exponentialRampToValueAtTime(0.001, time + 0.13);
-    src.connect(bpf); bpf.connect(nGain); nGain.connect(ctx.destination);
+    src.connect(bpf); bpf.connect(nGain); nGain.connect(getDest());
     src.start(time); src.stop(time + 0.14);
 
     // High crack
@@ -383,11 +439,13 @@
     const crackGain = ctx.createGain();
     crackGain.gain.setValueAtTime(vol * 0.55, time);
     crackGain.gain.exponentialRampToValueAtTime(0.001, time + 0.032);
-    crack.connect(hpf); hpf.connect(crackGain); crackGain.connect(ctx.destination);
+    crack.connect(hpf); hpf.connect(crackGain); crackGain.connect(getDest());
     crack.start(time); crack.stop(time + 0.038);
   }
 
   function playGhostSnare(ctx, time, vol) {
+    // Quiet, slightly tighter snare hit for ghost notes
+    if (playSample('snare', time, vol * 0.18, 1.15)) return;
     const src  = ctx.createBufferSource();
     src.buffer = getNoiseBuffer();
     const bpf  = ctx.createBiquadFilter();
@@ -397,11 +455,12 @@
     const g = ctx.createGain();
     g.gain.setValueAtTime(vol * 0.13, time);
     g.gain.exponentialRampToValueAtTime(0.001, time + 0.038);
-    src.connect(bpf); bpf.connect(g); g.connect(ctx.destination);
+    src.connect(bpf); bpf.connect(g); g.connect(getDest());
     src.start(time); src.stop(time + 0.045);
   }
 
   function playHH(ctx, time, vol, open) {
+    if (playSample(open ? 'openhat' : 'hihat', time, vol * (open ? 1.0 : 0.9))) return;
     const src  = ctx.createBufferSource();
     src.buffer = getNoiseBuffer();
     const bands = open
@@ -420,7 +479,7 @@
       const g = ctx.createGain();
       g.gain.setValueAtTime(amp, time);
       g.gain.exponentialRampToValueAtTime(0.001, time + decay);
-      src.connect(bpf); bpf.connect(g); g.connect(ctx.destination);
+      src.connect(bpf); bpf.connect(g); g.connect(getDest());
     });
 
     src.start(time);
@@ -428,6 +487,7 @@
   }
 
   function playRide(ctx, time, vol) {
+    if (playSample('ride', time, vol)) return;
     // Ride cymbal: longer decay, slightly different resonance
     const src  = ctx.createBufferSource();
     src.buffer = getNoiseBuffer();
@@ -445,7 +505,7 @@
       const g = ctx.createGain();
       g.gain.setValueAtTime(amp, time);
       g.gain.exponentialRampToValueAtTime(0.001, time + decay);
-      src.connect(bpf); bpf.connect(g); g.connect(ctx.destination);
+      src.connect(bpf); bpf.connect(g); g.connect(getDest());
     });
 
     // Bell: metallic ping
@@ -455,7 +515,7 @@
     const bellGain = ctx.createGain();
     bellGain.gain.setValueAtTime(vol * 0.12, time);
     bellGain.gain.exponentialRampToValueAtTime(0.001, time + 0.25);
-    osc.connect(bellGain); bellGain.connect(ctx.destination);
+    osc.connect(bellGain); bellGain.connect(getDest());
     osc.start(time); osc.stop(time + 0.26);
 
     src.start(time);
@@ -463,6 +523,8 @@
   }
 
   function playTom(ctx, time, vol, pitch) {
+    // One tom sample pitched via playbackRate → hi / mid / lo
+    if (playSample('tom', time, vol, pitch === 'hi' ? 1.25 : pitch === 'mid' ? 1.0 : 0.8)) return;
     // Tom: sine sweep, more pitched than kick
     const freq  = pitch === 'hi' ? 120 : pitch === 'mid' ? 85 : 60;
     const decay = pitch === 'hi' ? 0.18 : 0.25;
@@ -472,7 +534,7 @@
     osc.frequency.exponentialRampToValueAtTime(freq, time + decay * 0.5);
     gain.gain.setValueAtTime(vol, time);
     gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
-    osc.connect(gain); gain.connect(ctx.destination);
+    osc.connect(gain); gain.connect(getDest());
     osc.start(time); osc.stop(time + decay + 0.01);
 
     // Thwack transient
@@ -485,11 +547,13 @@
     const tGain = ctx.createGain();
     tGain.gain.setValueAtTime(vol * 0.4, time);
     tGain.gain.exponentialRampToValueAtTime(0.001, time + 0.02);
-    src.connect(bpf); bpf.connect(tGain); tGain.connect(ctx.destination);
+    src.connect(bpf); bpf.connect(tGain); tGain.connect(getDest());
     src.start(time); src.stop(time + 0.025);
   }
 
   function playCrash(ctx, time, vol) {
+    // No dedicated crash sample in the kit — use the ride cymbal, hit harder
+    if (playSample('ride', time, vol * 1.15)) return;
     // Crash cymbal: wide noise, long decay with metallic resonances
     const src  = ctx.createBufferSource();
     src.buffer = getNoiseBuffer();
@@ -506,7 +570,7 @@
       const g = ctx.createGain();
       g.gain.setValueAtTime(amp, time);
       g.gain.exponentialRampToValueAtTime(0.001, time + Math.max(0.05, decay));
-      src.connect(bpf); bpf.connect(g); g.connect(ctx.destination);
+      src.connect(bpf); bpf.connect(g); g.connect(getDest());
     });
 
     src.start(time);
@@ -641,6 +705,7 @@
   function startRhythm() {
     const ctx = getCtx();
     ctx.resume();
+    loadSamples();   // kick off acoustic-sample loading (idempotent; synth until ready)
     rb.isPlaying        = true;
     rb.currentStep      = 0;
     rb.nextStepTime     = ctx.currentTime + 0.05;
